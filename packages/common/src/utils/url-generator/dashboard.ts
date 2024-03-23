@@ -84,20 +84,39 @@ export const shared = (teamId?: string | null) =>
 export const liked = (teamId?: string | null) =>
   appendTeamIdQueryParam(`${DASHBOARD_URL_PREFIX}/liked`, teamId);
 
-export const settings = (teamId?: string | null) =>
-  appendTeamIdQueryParam(`${DASHBOARD_URL_PREFIX}/settings`, teamId);
+const portalBaseUrl = () => {
+  const origin = process.env.ENDPOINT || window.location.origin;
+  return `${origin}/t`;
+};
 
-export const registrySettings = (teamId?: string | null) =>
-  appendTeamIdQueryParam(
-    `${DASHBOARD_URL_PREFIX}/settings/npm-registry`,
-    teamId
-  );
+export const portalOverview = (
+  teamId?: string | null,
+  params?: Record<string, string>
+) => {
+  if (!teamId) {
+    return `${portalBaseUrl()}/overview`;
+  }
 
-export const permissionSettings = (teamId?: string | null) =>
-  appendTeamIdQueryParam(
-    `${DASHBOARD_URL_PREFIX}/settings/permissions`,
-    teamId
-  );
+  const url = appendTeamIdQueryParam(`${portalBaseUrl()}/overview`, teamId);
+  const searchParams = new URLSearchParams(params);
+  return `${url}&${searchParams.toString()}`;
+};
+
+export const portalRegistry = (teamId?: string | null) =>
+  appendTeamIdQueryParam(`${portalBaseUrl()}/registry`, teamId);
+
+export const portalPermissions = (teamId?: string | null) =>
+  appendTeamIdQueryParam(`${portalBaseUrl()}/permissions`, teamId);
+
+export const portalVMSettings = (teamId?: string | null) =>
+  appendTeamIdQueryParam(`${portalBaseUrl()}/vm_settings`, teamId);
+
+export const portalVMUsage = (teamId?: string | null) =>
+  appendTeamIdQueryParam(`${portalBaseUrl()}/usage`, teamId);
+
+// This is used separately for checkout endpoints where the success/cancel paths need to be relative
+export const portalRelativePath = (teamId?: string | null) =>
+  appendTeamIdQueryParam(`/t/overview`, teamId);
 
 export const search = (query: string, teamId?: string | null) => {
   let searchUrl = appendTeamIdQueryParam(
@@ -116,27 +135,37 @@ export const search = (query: string, teamId?: string | null) => {
   return searchUrl;
 };
 
-export const discover = (teamId?: string | null, albumId?: string) => {
-  if (albumId) {
-    return appendTeamIdQueryParam(
-      `${DASHBOARD_URL_PREFIX}/discover/${albumId}`,
-      teamId
-    );
-  }
-
-  return appendTeamIdQueryParam(`${DASHBOARD_URL_PREFIX}/discover`, teamId);
+type UpgradeParams = {
+  workspaceId?: string;
+  source?: string;
 };
 
-export const discoverSearch = (query: string, teamId?: string | null) => {
-  let searchUrl = appendTeamIdQueryParam(
-    `${DASHBOARD_URL_PREFIX}/discover/search`,
-    teamId
-  );
+export const upgradeUrl = ({
+  workspaceId,
+  source,
+}: UpgradeParams = {}): string => {
+  const searchQuery = new URLSearchParams({});
+  if (workspaceId) {
+    searchQuery.set('workspace', workspaceId);
+  }
 
-  if (searchUrl.includes('?')) searchUrl += '&';
-  else searchUrl += '?';
+  if (source) {
+    searchQuery.set('utm_source', source);
+  }
 
-  searchUrl += `query=${query}`;
+  const queryString = searchQuery.toString();
+  return queryString ? `/upgrade?${queryString}` : '/upgrade';
+};
 
-  return searchUrl;
+export const createWorkspaceUrl = ({
+  workspaceId,
+}: {
+  workspaceId: string;
+}) => {
+  const searchQuery = new URLSearchParams();
+  if (workspaceId) {
+    searchQuery.set('workspace', workspaceId);
+  }
+  const queryString = searchQuery.toString();
+  return queryString ? `/create-workspace?${queryString}` : '/create-workspace';
 };

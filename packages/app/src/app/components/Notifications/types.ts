@@ -15,6 +15,28 @@ export type MentionData = {
   commentId: string;
 };
 
+export type PullRequestReviewReceivedData = {
+  branch: string;
+  owner: string;
+  pullRequestNumber: number;
+  repo: string;
+  reviewerAvatar: string;
+  reviewerName: string;
+  reviewState: string;
+  reviewId: number;
+  teamId: string;
+};
+
+export type PullRequestReviewRequestData = {
+  branch: string;
+  owner: string;
+  pullRequestNumber: number;
+  repo: string;
+  requesterAvatar: string;
+  requesterName: string;
+  teamId: string;
+};
+
 export type TeamInviteData = {
   teamId: string;
   teamName: string;
@@ -22,8 +44,17 @@ export type TeamInviteData = {
   inviterAvatar: string;
 };
 
+export type TeamInviteRequestData = {
+  teamId: string;
+  teamName: string;
+  requesterEmail: string;
+  requesterName: string;
+  requesterAvatar: string | null;
+};
+
 export type TeamAcceptedData = {
   teamName: string;
+  teamId: string;
   userName: string;
   userAvatar: string;
 };

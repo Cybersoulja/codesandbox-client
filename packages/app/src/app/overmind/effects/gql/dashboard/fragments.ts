@@ -12,12 +12,14 @@ export const sandboxFragmentDashboard = gql`
     removedAt
     privacy
     isFrozen
+    isSse
     screenshotUrl
     screenshotOutdated
     viewCount
     likeCount
-    alwaysOn
     isV2
+    draft
+    restricted
 
     source {
       template
@@ -117,9 +119,13 @@ export const teamFragmentDashboard = gql`
   fragment teamFragmentDashboard on Team {
     id
     name
+    type
     description
     creatorId
     avatarUrl
+    legacy
+    frozen
+    insertedAt
     settings {
       minimumPrivacy
     }
@@ -150,6 +156,11 @@ export const teamFragmentDashboard = gql`
       status
       paymentProvider
     }
+
+    featureFlags {
+      ubbBeta
+      friendOfCsb
+    }
   }
 `;
 
@@ -160,8 +171,11 @@ export const currentTeamInfoFragment = gql`
     description
     inviteToken
     name
+    type
     avatarUrl
-
+    legacy
+    frozen
+    insertedAt
     users {
       id
       avatarUrl
@@ -177,6 +191,8 @@ export const currentTeamInfoFragment = gql`
     userAuthorizations {
       userId
       authorization
+      teamManager
+      drafts
     }
 
     settings {
@@ -184,6 +200,12 @@ export const currentTeamInfoFragment = gql`
       preventSandboxExport
       preventSandboxLeaving
       defaultAuthorization
+      aiConsent {
+        privateRepositories
+        privateSandboxes
+        publicRepositories
+        publicSandboxes
+      }
     }
 
     subscription(includeCancelled: true) {
@@ -206,34 +228,22 @@ export const currentTeamInfoFragment = gql`
     }
 
     limits {
-      maxEditors
-      maxPrivateProjects
-      maxPrivateSandboxes
-      maxPublicProjects
-      maxPublicSandboxes
+      includedCredits
+      includedSandboxes
+      includedDrafts
+      includedVmTier
+      onDemandCreditLimit
     }
 
     usage {
-      editorsQuantity
-      privateProjectsQuantity
-      privateSandboxesQuantity
-      publicProjectsQuantity
-      publicSandboxesQuantity
+      sandboxes
+      credits
     }
-  }
-`;
 
-export const npmRegistryFragment = gql`
-  fragment npmRegistry on PrivateRegistry {
-    id
-    authType
-    enabledScopes
-    limitToScopes
-    proxyEnabled
-    registryAuthKey
-    registryType
-    registryUrl
-    teamId
+    featureFlags {
+      ubbBeta
+      friendOfCsb
+    }
   }
 `;
 
@@ -262,6 +272,7 @@ export const branchFragment = gql`
 
 export const projectFragment = gql`
   fragment project on Project {
+    appInstalled
     branchCount
     lastAccessedAt
     repository {
@@ -280,6 +291,7 @@ export const projectFragment = gql`
 
 export const projectWithBranchesFragment = gql`
   fragment projectWithBranches on Project {
+    appInstalled
     branches {
       ...branch
     }
@@ -296,4 +308,21 @@ export const projectWithBranchesFragment = gql`
     }
   }
   ${branchFragment}
+`;
+
+export const githubRepoFragment = gql`
+  fragment githubRepo on GithubRepo {
+    id
+    authorization
+    fullName
+    name
+    private
+    updatedAt
+    pushedAt
+    owner {
+      id
+      login
+      avatarUrl
+    }
+  }
 `;

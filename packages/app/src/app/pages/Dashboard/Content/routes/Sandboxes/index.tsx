@@ -2,7 +2,6 @@ import React from 'react';
 import { Helmet } from 'react-helmet';
 import { useParams } from 'react-router-dom';
 import track from '@codesandbox/common/lib/utils/analytics';
-import { CreateCard } from '@codesandbox/components';
 import { useAppState, useActions } from 'app/overmind';
 import { EmptyPage } from 'app/pages/Dashboard/Components/EmptyPage';
 import { Header } from 'app/pages/Dashboard/Components/Header';
@@ -10,9 +9,10 @@ import { SelectionProvider } from 'app/pages/Dashboard/Components/Selection';
 import { VariableGrid } from 'app/pages/Dashboard/Components/VariableGrid';
 import { DashboardGridItem, PageTypes } from 'app/pages/Dashboard/types';
 import { useWorkspaceLimits } from 'app/hooks/useWorkspaceLimits';
-import { getPossibleTemplates } from '../../utils';
+import { ActionCard } from 'app/pages/Dashboard/Components/shared/ActionCard';
+import { RestrictedSandboxes } from 'app/components/StripeMessages/RestrictedSandboxes';
+import { Element } from '@codesandbox/components';
 import { useFilteredItems } from './useFilteredItems';
-import { RestrictionsBanner } from './RestrictionsBanner';
 
 export const SandboxesPage = () => {
   const [level, setLevel] = React.useState(0);
@@ -22,12 +22,11 @@ export const SandboxesPage = () => {
   const cleanParam = currentPath.split(' ').join('{}');
   const items = useFilteredItems(currentPath, cleanParam, level);
   const actions = useActions();
+  const { isFrozen, hasReachedSandboxLimit } = useWorkspaceLimits();
   const {
-    dashboard: { allCollections, sandboxes },
+    dashboard: { allCollections },
     activeTeam,
   } = useAppState();
-
-  const { hasMaxPublicSandboxes } = useWorkspaceLimits();
 
   React.useEffect(() => {
     if (!currentPath || currentPath === '/') {
@@ -38,7 +37,6 @@ export const SandboxesPage = () => {
     actions.dashboard.getSandboxesByPath(currentPath);
   }, [currentPath, actions.dashboard, activeTeam]);
 
-  const activeSandboxes = sandboxes.ALL && sandboxes.ALL[cleanParam];
   const itemsToShow: DashboardGridItem[] = allCollections
     ? [
         creating && {
@@ -64,13 +62,24 @@ export const SandboxesPage = () => {
       activeTeamId={activeTeam}
       createNewFolder={() => setCreating(true)}
       createNewSandbox={
-        currentCollection && !hasMaxPublicSandboxes
+        currentCollection
           ? () => {
-              actions.modals.newSandboxModal.open({
-                collectionId: currentCollection.id,
+              actions.modalOpened({
+                modal: 'createSandbox',
+                itemId: currentCollection.id,
               });
             }
-          : null
+          : undefined
+      }
+      createNewDevbox={
+        currentCollection
+          ? () => {
+              actions.modalOpened({
+                modal: 'createDevbox',
+                itemId: currentCollection.id,
+              });
+            }
+          : undefined
       }
     >
       <Helmet>
@@ -79,35 +88,59 @@ export const SandboxesPage = () => {
         </title>
       </Helmet>
 
+      {hasReachedSandboxLimit && (
+        <Element css={{ padding: '0 26px 32px 16px' }}>
+          <RestrictedSandboxes />
+        </Element>
+      )}
+
       <Header
         activeTeam={activeTeam}
         path={currentPath}
-        templates={getPossibleTemplates(activeSandboxes || [])}
         createNewFolder={() => setCreating(true)}
         showViewOptions={!isEmpty}
-        showFilters={!isEmpty && Boolean(currentPath)}
         showSortOptions={!isEmpty && Boolean(currentPath)}
       />
-
-      {hasMaxPublicSandboxes ? <RestrictionsBanner /> : null}
 
       {isEmpty ? (
         <EmptyPage.StyledWrapper>
           <EmptyPage.StyledGrid>
-            <CreateCard
-              icon="plus"
-              title="New sandbox"
+            <ActionCard
+              icon="boxDevbox"
+              disabled={isFrozen}
               onClick={() => {
-                track('Empty State Card - Open create modal', {
+                track('Empty Folder - Create devbox', {
+                  codesandbox: 'V1',
+                  event_source: 'UI',
+                });
+
+                actions.modalOpened({
+                  modal: 'createDevbox',
+                  itemId: currentCollection.id,
+                });
+              }}
+            >
+              Create devbox
+            </ActionCard>
+            <ActionCard
+              icon="boxSandbox"
+              disabled={hasReachedSandboxLimit}
+              onClick={() => {
+                track('Empty Folder - Create sandbox', {
                   codesandbox: 'V1',
                   event_source: 'UI',
                   card_type: 'get-started-action',
                   tab: 'default',
                 });
 
-                actions.openCreateSandboxModal();
+                actions.modalOpened({
+                  modal: 'createSandbox',
+                  itemId: currentCollection.id,
+                });
               }}
-            />
+            >
+              Create sandbox
+            </ActionCard>
           </EmptyPage.StyledGrid>
         </EmptyPage.StyledWrapper>
       ) : (

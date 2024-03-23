@@ -12,8 +12,6 @@ export type PageTypes =
   | 'repositories'
   | 'repository-branches'
   | 'shared'
-  | 'liked'
-  | 'discover'
   | 'external';
 
 export type OrderBy = {
@@ -33,11 +31,8 @@ export enum sandboxesTypes {
   DELETED = 'DELETED',
   RECENT = 'RECENT',
   SHARED = 'SHARED',
-  LIKED = 'LIKED',
   TEMPLATE_HOME = 'TEMPLATE_HOME',
   ALL = 'ALL',
   SEARCH = 'SEARCH',
   REPOS = 'REPOS',
-  ALWAYS_ON = 'ALWAYS_ON',
-  DISCOVER = 'DISCOVER',
 }

@@ -1,17 +1,15 @@
-import css from '@styled-system/css';
 import { getSandboxName } from '@codesandbox/common/lib/utils/get-sandbox-name';
 import { useAppState, useActions } from 'app/overmind';
-import { ThemeProvider, Element, Stack } from '@codesandbox/components';
-import { Navigation } from 'app/pages/common/Navigation';
 import React, { useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 
+import { useBetaSandboxEditor } from 'app/hooks/useBetaSandboxEditor';
+import { Redirect } from 'react-router-dom';
 import { Editor } from './Editor';
-import { GitHubError } from './GitHubError';
 import { OnBoarding } from './OnBoarding';
 
 interface Props {
-  showNewSandboxModal?: boolean;
+  showModalOnTop?: 'newSandbox' | 'newDevbox' | 'new';
   match?: {
     params: {
       id: string;
@@ -20,9 +18,10 @@ interface Props {
 }
 
 export const Sandbox = React.memo<Props>(
-  ({ match, showNewSandboxModal }) => {
+  ({ match, showModalOnTop }) => {
     const state = useAppState();
     const actions = useActions();
+    const [hasBetaEditorExperiment] = useBetaSandboxEditor();
     const { sandboxPageMounted } = actions;
 
     /**
@@ -46,7 +45,7 @@ export const Sandbox = React.memo<Props>(
     }, [sandboxPageMounted]);
 
     useEffect(() => {
-      if (!showNewSandboxModal) {
+      if (!showModalOnTop) {
         if (window.screen.availWidth < 800) {
           if (!document.location.search.includes('from-embed')) {
             const addedSign = document.location.search ? '&' : '?';
@@ -62,7 +61,10 @@ export const Sandbox = React.memo<Props>(
 
       actions.live.onNavigateAway();
       if (match?.params) {
-        actions.editor.sandboxChanged({ id: match.params.id });
+        actions.editor.sandboxChanged({
+          id: match.params.id,
+          hasBetaEditorExperiment,
+        });
       }
 
       // eslint-disable-next-line
@@ -70,7 +72,7 @@ export const Sandbox = React.memo<Props>(
       actions.live,
       actions.editor,
       actions.preferences,
-      showNewSandboxModal,
+      showModalOnTop,
       // eslint-disable-next-line react-hooks/exhaustive-deps
       match?.params,
     ]);
@@ -82,74 +84,13 @@ export const Sandbox = React.memo<Props>(
       [actions.live]
     );
 
-    function getContent() {
-      const {
-        isLoggedIn,
-        editor: { error },
-      } = state;
-
-      if (error) {
-        const isGithub = match?.params?.id.includes('github');
-
-        return (
-          <GitHubError
-            signIn={() => actions.signInClicked()}
-            isGithub={isGithub}
-            error={error}
-            isLoggedIn={isLoggedIn}
-          />
-        );
-      }
-
-      return null;
-    }
-
-    const content = getContent();
-
-    if (content) {
-      return (
-        <ThemeProvider>
-          <Element
-            css={css({
-              display: 'flex',
-              flex: 'auto',
-              width: '100%',
-              height: '100%',
-              backgroundColor: 'sideBar.background',
-              fontFamily: 'Inter',
-            })}
-          >
-            <Stack
-              style={{
-                flexDirection: 'column',
-                width: '100vw',
-                height: '100vh',
-              }}
-              margin={1}
-            >
-              <Navigation title="Sandbox Editor" />
-              <Stack
-                align="center"
-                justify="center"
-                style={{
-                  flexDirection: 'column',
-                  width: '100%',
-                  height: '100%',
-                }}
-              >
-                {content}
-              </Stack>
-            </Stack>
-          </Element>
-        </ThemeProvider>
-      );
-    }
-
     const sandbox = state.editor.currentSandbox;
 
     const getTitle = () => {
-      if (showNewSandboxModal) {
-        return 'Create a new Sandbox';
+      if (showModalOnTop) {
+        return 'Create ' + showModalOnTop === 'newSandbox'
+          ? 'Sandbox'
+          : 'Devbox';
       }
 
       if (sandbox) {
@@ -159,13 +100,27 @@ export const Sandbox = React.memo<Props>(
       return 'Loading...';
     };
 
+    if (state.hasLogIn) {
+      if (showModalOnTop === 'newSandbox') {
+        return <Redirect to="/dashboard/recent?create_sandbox=true" />;
+      }
+
+      if (showModalOnTop === 'newDevbox') {
+        return <Redirect to="/dashboard/recent?create_devbox=true" />;
+      }
+
+      if (showModalOnTop === 'new') {
+        return <Redirect to="/dashboard/recent?create=true" />;
+      }
+    }
+
     return (
       <>
         <Helmet>
           <title>{getTitle()} - CodeSandbox</title>
         </Helmet>
         <OnBoarding />
-        <Editor showNewSandboxModal={showNewSandboxModal} />
+        <Editor showModalOnTop={showModalOnTop} />
       </>
     );
   },

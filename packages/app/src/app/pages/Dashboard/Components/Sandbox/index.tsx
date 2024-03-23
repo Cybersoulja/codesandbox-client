@@ -12,7 +12,7 @@ import track, {
 } from '@codesandbox/common/lib/utils/analytics';
 import { Icon } from '@codesandbox/components';
 import { formatNumber } from '@codesandbox/components/lib/components/Stats';
-import { useWorkspaceSubscription } from 'app/hooks/useWorkspaceSubscription';
+import { useBetaSandboxEditor } from 'app/hooks/useBetaSandboxEditor';
 import { SandboxCard } from './SandboxCard';
 import { SandboxListItem } from './SandboxListItem';
 import { getTemplateIcon } from './TemplateIcon';
@@ -68,17 +68,19 @@ function getFolderName(item: GenericSandboxProps['item']): string | undefined {
 
 const GenericSandbox = ({ isScrolling, item, page }: GenericSandboxProps) => {
   const { dashboard, activeWorkspaceAuthorization } = useAppState();
+  const [hasBetaEditorExperiment] = useBetaSandboxEditor();
   const actions = useActions();
-  const { isFree } = useWorkspaceSubscription();
 
   const { sandbox } = item;
 
   const sandboxTitle = sandbox.title || sandbox.alias || sandbox.id;
 
   const sandboxLocation = getFolderName(item);
+  const timeStampToUse =
+    page === 'recent' ? sandbox.lastAccessedAt : sandbox.updatedAt;
 
-  const lastUpdated = formatDistanceStrict(
-    zonedTimeToUtc(sandbox.updatedAt, 'Etc/UTC'),
+  const timeAgo = formatDistanceStrict(
+    zonedTimeToUtc(timeStampToUse, 'Etc/UTC'),
     new Date(),
     {
       addSuffix: true,
@@ -87,10 +89,12 @@ const GenericSandbox = ({ isScrolling, item, page }: GenericSandboxProps) => {
 
   const viewCount = formatNumber(sandbox.viewCount);
 
-  const url = sandboxUrl(sandbox);
+  const url = sandboxUrl(sandbox, hasBetaEditorExperiment);
+  const linksToV2 = sandbox.isV2 || (!sandbox.isSse && hasBetaEditorExperiment);
 
   const TemplateIcon = getTemplateIcon(sandbox);
-  const PrivacyIcon = PrivacyIcons[sandbox.privacy || 0];
+  const PrivacyIcon = PrivacyIcons[sandbox.privacy];
+  const restricted = sandbox.restricted && !sandbox.draft;
 
   let screenshotUrl = sandbox.screenshotUrl;
   // We set a fallback thumbnail in the API which is used for
@@ -118,6 +122,10 @@ const GenericSandbox = ({ isScrolling, item, page }: GenericSandboxProps) => {
 
   if (page === 'deleted') {
     viewMode = 'list';
+  }
+
+  if (page === 'recent') {
+    viewMode = 'grid';
   }
 
   const Component: React.FC<SandboxItemComponentProps> =
@@ -148,7 +156,6 @@ const GenericSandbox = ({ isScrolling, item, page }: GenericSandboxProps) => {
 
   const selected = selectedIds.includes(sandbox.id);
   const isDragging = isAnythingDragging && selected;
-  const restricted = isFree && sandbox.privacy !== 0;
 
   const onClick = event => {
     onSelectionClick(event, sandbox.id);
@@ -175,7 +182,7 @@ const GenericSandbox = ({ isScrolling, item, page }: GenericSandboxProps) => {
 
       if (event.ctrlKey || event.metaKey) {
         window.open(url, '_blank');
-      } else if (sandbox.isV2) {
+      } else if (linksToV2) {
         window.location.href = url;
       } else {
         history.push(url);
@@ -233,9 +240,9 @@ const GenericSandbox = ({ isScrolling, item, page }: GenericSandboxProps) => {
       ? {
           ...baseInteractions,
           interaction: 'link' as const,
-          as: sandbox.isV2 ? 'a' : Link,
-          to: sandbox.isV2 ? undefined : url,
-          href: sandbox.isV2 ? url : undefined,
+          as: linksToV2 ? 'a' : Link,
+          to: linksToV2 ? undefined : url,
+          href: linksToV2 ? url : undefined,
           onClick: () => {
             // On the recent page the sandbox card is an anchor, so we only have
             // to track using onclick, the sandbox is opened through native anchor
@@ -261,13 +268,13 @@ const GenericSandbox = ({ isScrolling, item, page }: GenericSandboxProps) => {
     noDrag,
     sandboxTitle,
     sandboxLocation,
-    lastUpdated,
+    timeAgo,
     viewCount,
     sandbox,
     TemplateIcon,
     PrivacyIcon,
-    screenshotUrl,
     restricted,
+    screenshotUrl,
     // edit mode
     editing: isRenaming && selected,
     newTitle,
@@ -292,16 +299,6 @@ const GenericSandbox = ({ isScrolling, item, page }: GenericSandboxProps) => {
       captureDraggingState: true,
     });
   }, [preview]);
-
-  if (page === 'liked') {
-    return (
-      <Component
-        {...sandboxProps}
-        {...interactionProps}
-        isScrolling={isScrolling}
-      />
-    );
-  }
 
   return (
     <div {...dragProps} css={{ height: '100%' }}>

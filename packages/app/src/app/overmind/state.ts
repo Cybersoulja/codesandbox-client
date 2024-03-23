@@ -1,7 +1,6 @@
 import {
   CurrentUser,
   Notification,
-  Sandbox,
   UploadFile,
 } from '@codesandbox/common/lib/types';
 import {
@@ -10,6 +9,8 @@ import {
 } from 'app/graphql/types';
 import { derived } from 'overmind';
 import { hasLogIn } from '@codesandbox/common/lib/utils/user';
+import { SandboxToFork } from 'app/components/Create/utils/types';
+import { MetaFeatures } from './effects/api/types';
 
 export type PendingUserType = {
   avatarUrl: string | null;
@@ -23,7 +24,7 @@ type State = {
   isFirstVisit: boolean;
   isLoggedIn: boolean;
   hasLogIn: boolean;
-  popularSandboxes: Sandbox[] | null;
+  officialTemplates: SandboxToFork[];
   hasLoadedApp: boolean;
   isAuthenticating: boolean;
   authToken: string | null;
@@ -32,7 +33,7 @@ type State = {
   contributors: string[];
   user: CurrentUser | null;
   activeWorkspaceAuthorization: TeamMemberAuthorization;
-  personalWorkspaceId: string | null;
+  primaryWorkspaceId: string | null;
   activeTeam: string | null;
   activeTeamInfo: CurrentTeam | null;
   connected: boolean;
@@ -42,6 +43,8 @@ type State = {
   isLoadingVercel: boolean;
   pendingUserId: string | null;
   pendingUser: PendingUserType;
+  // Persists the primaryWorkspaceId for a fresh user until redirect
+  newUserFirstWorkspaceId: string | null;
   contextMenu: {
     show: boolean;
     items: string[];
@@ -50,13 +53,15 @@ type State = {
   };
   currentModal: string | null;
   currentModalMessage: string | null;
+  currentModalItemId?: string; // Used for passing collection id for create modals
+  repoToImport: { owner: string; name: string } | null;
+  sandboxIdToFork: string | null;
   uploadedFiles: UploadFile[] | null;
   maxStorage: number;
   usedStorage: number;
   updateStatus: string | null;
   isContributor: (username: String) => boolean;
   signInModalOpen: boolean;
-  redirectOnLogin: string | null;
   cancelOnLogin: null | (() => void);
   duplicateAccountStatus: {
     duplicate: boolean;
@@ -75,11 +80,30 @@ type State = {
     sandboxCount: number;
     sandboxLimit: number;
   } | null;
+
+  /**
+   * Different features might be available based on the backend response
+   * eg: different login providers
+   * Each field is undefined until the endpoint returns.
+   */
+  features: MetaFeatures;
+
+  /**
+   * Environment variables that can be set for our deploys or for on-prem
+   */
+  environment: {
+    isOnPrem: boolean;
+    useStaticPreview: boolean;
+    previewDomain: string | null;
+    amplitudeKey: string | null;
+    sentryDSN: string | null;
+  };
 };
 
 export const state: State = {
   pendingUserId: null,
   pendingUser: null,
+  newUserFirstWorkspaceId: null,
   isFirstVisit: false,
   isLoggedIn: derived(({ hasLogIn: has, user }: State) => has && Boolean(user)),
   // TODO: Should not reference store directly here, rather initialize
@@ -91,7 +115,7 @@ export const state: State = {
         contributor.toLocaleLowerCase() === username.toLocaleLowerCase()
     ) > -1
   ),
-  popularSandboxes: null,
+  officialTemplates: [],
   hasLoadedApp: false,
   isAuthenticating: true,
   authToken: null,
@@ -110,7 +134,7 @@ export const state: State = {
   ),
   activeTeam: null,
   activeTeamInfo: null,
-  personalWorkspaceId: null,
+  primaryWorkspaceId: null,
   connected: true,
   notifications: [],
   contributors: [],
@@ -125,17 +149,36 @@ export const state: State = {
   },
   currentModal: null,
   currentModalMessage: null,
+  repoToImport: null,
+  sandboxIdToFork: null,
   uploadedFiles: null,
   maxStorage: 0,
   usedStorage: 0,
   updateStatus: null,
   signInModalOpen: false,
-  redirectOnLogin: null,
   cancelOnLogin: null,
   duplicateAccountStatus: null,
   loadingAuth: {
     apple: false,
     google: false,
     github: false,
+  },
+  features: {
+    // Fallback values for when the features endpoint is not available
+    loginWithApple: true,
+    loginWithGoogle: true,
+    loginWithGithub: true,
+  },
+  environment: {
+    // @ts-ignore
+    isOnPrem: window._env_?.IS_ONPREM === 'true',
+    // @ts-ignore
+    useStaticPreview: window._env_?.USE_STATIC_PREVIEW === 'true',
+    // @ts-ignore
+    previewDomain: window._env_?.PREVIEW_DOMAIN || null,
+    // @ts-ignore
+    amplitudeKey: window._env_?.AMPLITUDE_API_KEY || null,
+    // @ts-ignore
+    sentryDSN: window._env_?.SENTRY_DSN || null,
   },
 };

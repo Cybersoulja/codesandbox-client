@@ -2,7 +2,9 @@ import { Element, Stack, Text } from '@codesandbox/components';
 import css from '@styled-system/css';
 import React, { ComponentType, FunctionComponent } from 'react';
 
-import { useAppState, useActions } from 'app/overmind';
+import { useActions } from 'app/overmind';
+
+import { useIsEditorPage } from 'app/hooks/useIsEditorPage';
 
 type MenuItem = {
   Icon: ComponentType;
@@ -11,13 +13,17 @@ type MenuItem = {
 };
 type Props = {
   menuItems: MenuItem[];
+  selectedTab: string;
 };
-export const SideNavigation: FunctionComponent<Props> = ({ menuItems }) => {
-  const { itemId = 'appearance' } = useAppState().preferences;
+export const SideNavigation: FunctionComponent<Props> = ({
+  menuItems,
+  selectedTab,
+}) => {
   const { itemIdChanged } = useActions().preferences;
+  const isEditorPage = useIsEditorPage();
 
   return (
-    <Element css={css({ width: 244 })} paddingBottom={8}>
+    <Element css={css({ width: 200 })} paddingBottom={8}>
       <Text
         block
         paddingBottom={6}
@@ -25,11 +31,8 @@ export const SideNavigation: FunctionComponent<Props> = ({ menuItems }) => {
         paddingTop={6}
         size={4}
         weight="regular"
-        css={css({
-          color: 'sideBarSectionHeader.foreground',
-        })}
       >
-        Preferences
+        {isEditorPage ? 'Preferences' : 'User settings'}
       </Text>
 
       <Element style={{ position: 'relative' }}>
@@ -48,17 +51,12 @@ export const SideNavigation: FunctionComponent<Props> = ({ menuItems }) => {
               outline: 'none',
               fontSize: 3,
               paddingX: 5,
-              paddingY: 3,
+              paddingY: 2,
               cursor: 'pointer',
-              lineHeight: 1,
               border: '1px solid transparent',
-              color:
-                itemId === id
-                  ? 'list.hoverForeground'
-                  : 'sideBarSectionHeader.foreground',
+              color: selectedTab === id ? '#fff' : '#adadad',
               '&:hover': {
                 backgroundColor: 'list.hoverBackground',
-                color: 'list.hoverForeground',
               },
               '&:focus-visible': {
                 borderColor: 'focusBorder',
@@ -66,12 +64,10 @@ export const SideNavigation: FunctionComponent<Props> = ({ menuItems }) => {
             })}
             key={title}
             onClick={() => itemIdChanged(id)}
+            gap={2}
           >
-            <Element marginRight={4}>
-              <Icon />
-            </Element>
-
-            {title}
+            <Icon />
+            <Text>{title}</Text>
           </Stack>
         ))}
       </Element>

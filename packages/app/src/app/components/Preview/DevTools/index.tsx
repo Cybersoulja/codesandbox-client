@@ -366,7 +366,7 @@ export class DevTools extends React.PureComponent<Props, State> {
       } else {
         setTimeout(() => {
           const { height } = this.state;
-          if (height > 64) {
+          if (typeof height === 'number' && height > 64) {
             store.set('devtools.height', height);
           }
         }, 50);
@@ -521,7 +521,7 @@ export class DevTools extends React.PureComponent<Props, State> {
           minHeight: 0,
         }}
       >
-        {!hideTabs && (
+        {!hideTabs && panes.length > 0 && (
           <Header
             onTouchStart={!primary ? this.handleTouchStart : undefined}
             onMouseDown={!primary ? this.handleMouseDown : undefined}
@@ -541,6 +541,8 @@ export class DevTools extends React.PureComponent<Props, State> {
               closeTab={this.props.closeTab}
               disableLogging={disableLogging}
               isOnEmbedPage={this.props.isOnEmbedPage}
+              // @ts-ignore
+              isOnPrem={window._env_?.IS_ONPREM === 'true'}
             />
 
             {!primary && (

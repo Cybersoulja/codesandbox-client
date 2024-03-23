@@ -53,3 +53,51 @@ export default function setupConsole() {
 
   return listen(handleMessage);
 }
+
+const isIFramePreview = window.top !== window.self;
+
+// Only run this script in editor context
+if (isIFramePreview) {
+  // This is a temporary fix for deprecating the V1 editor. We need to load both V1 and V2 preview protocol
+  // and this is the simplest way to achieve that. Later everything will be V2 preview protocol
+  (function LoadV2PreviewProtocol() {
+    const script = document.createElement('script');
+    script.src = 'https://codesandbox.io/p/preview-protocol.js';
+    script.async = true;
+    script.defer = true;
+    (document.head || document.documentElement).prepend(script);
+  })();
+
+  // This script is used to enable Chrome DevTools functionality
+  (function ChromeDevtools() {
+    const script = document.createElement('script');
+    script.src = 'https://codesandbox.io/p/chrome-devtool/protocol/index.js';
+
+    script.onload = () => {
+      const devtoolProtocol = window.chobitsu;
+      if (devtoolProtocol) {
+        window.addEventListener('message', event => {
+          const { type, data } = event.data;
+
+          if (type === 'FROM_DEVTOOL') {
+            devtoolProtocol.sendRawMessage(data);
+          }
+        });
+
+        devtoolProtocol.setOnMessage(data => {
+          if (data.includes('"id":"tmp')) {
+            return;
+          }
+
+          window.parent.postMessage({ type: 'TO_DEVTOOL', data }, '*');
+        });
+
+        devtoolProtocol.sendRawMessage(
+          `{"id":5,"method":"Runtime.enable","params":{}}`
+        );
+      }
+    };
+
+    (document.head || document.documentElement).prepend(script);
+  })();
+}

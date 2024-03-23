@@ -24,19 +24,27 @@ export default new (class RouterEffect {
       alias,
       git,
       v2,
+      isSse,
     }: {
       id?: string | null;
       alias?: string | null;
       git?: GitInfo | null;
       v2?: boolean;
+      isSse?: boolean;
     },
-    { openInNewWindow = false }: { openInNewWindow?: boolean } = {}
+    {
+      openInNewWindow = false,
+      hasBetaEditorExperiment = false,
+    }: { openInNewWindow?: boolean; hasBetaEditorExperiment?: boolean } = {}
   ) {
-    const url = sandboxUrl({ id, alias, isV2: v2 });
+    const url = sandboxUrl(
+      { id, alias, isV2: v2, isSse },
+      hasBetaEditorExperiment
+    );
 
     if (openInNewWindow) {
       window.open(url, '_blank');
-    } else if (v2) {
+    } else if (v2 || (!isSse && hasBetaEditorExperiment)) {
       window.location.href = url;
     } else {
       history.push(url);
@@ -75,5 +83,11 @@ export default new (class RouterEffect {
   getParameter(key: string): string | null {
     const currentUrl = new URL(location.href);
     return currentUrl.searchParams.get(key);
+  }
+
+  clearWorkspaceId(): void {
+    const searchParams = new URLSearchParams(location.search);
+    searchParams.delete('workspace');
+    history.replace({ search: searchParams.toString() });
   }
 })();

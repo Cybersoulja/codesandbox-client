@@ -6,31 +6,22 @@ import { VariableGrid } from 'app/pages/Dashboard/Components/VariableGrid';
 import { DashboardGridItem, PageTypes } from 'app/pages/Dashboard/types';
 import { SelectionProvider } from 'app/pages/Dashboard/Components/Selection';
 import { Element } from '@codesandbox/components';
-import { useWorkspaceLimits } from 'app/hooks/useWorkspaceLimits';
-import { useGitHuPermissions } from 'app/hooks/useGitHubPermissions';
-import {
-  MaxReposFreeTeam,
-  TemporaryWarningForWorkspaceScopesMigration,
-} from 'app/pages/Dashboard/Components/Repository/stripes';
+import { useGitHubPermissions } from 'app/hooks/useGitHubPermissions';
 import { RestrictedPublicReposImport } from 'app/pages/Dashboard/Components/shared/RestrictedPublicReposImport';
 import { useDismissible } from 'app/hooks';
+import track from '@codesandbox/common/lib/utils/analytics';
+import { useWorkspaceLimits } from 'app/hooks/useWorkspaceLimits';
 import { EmptyRepositories } from './EmptyRepositories';
 
 export const RepositoriesPage = () => {
   const actions = useActions();
+  const { isFrozen } = useWorkspaceLimits();
   const {
     activeTeam,
     dashboard: { repositoriesByTeamId, viewMode },
   } = useAppState();
   const [dismissedPermissionsBanner, dismissPermissionsBanner] = useDismissible(
     'DASHBOARD_REPOSITORIES_PERMISSIONS_BANNER'
-  );
-
-  const [
-    dismissedWorkspaceScopesMigrationMessage,
-    dismissWorkspaceScopesMigrationMessage,
-  ] = useDismissible(
-    'DASHBOARD_REPOSITORIES_WORKSPACE_SCOPES_MIGRATION_MESSAGE'
   );
 
   const teamRepos = repositoriesByTeamId[activeTeam] || undefined;
@@ -46,12 +37,7 @@ export const RepositoriesPage = () => {
     });
   }, [activeTeam]);
 
-  const {
-    hasMaxPublicRepositories,
-    hasMaxPrivateRepositories,
-  } = useWorkspaceLimits();
-
-  const { restrictsPublicRepos } = useGitHuPermissions();
+  const { restrictsPublicRepos } = useGitHubPermissions();
 
   const pageType: PageTypes = 'repositories';
 
@@ -60,7 +46,11 @@ export const RepositoriesPage = () => {
       return [{ type: 'skeleton-row' }, { type: 'skeleton-row' }];
     }
 
-    const repoItems: DashboardGridItem[] = teamRepos.map(repository => ({
+    const orderedRepos = [...teamRepos].sort((a, b) =>
+      a.repository.name.toLowerCase() < b.repository.name.toLowerCase() ? -1 : 1
+    );
+
+    const repoItems: DashboardGridItem[] = orderedRepos.map(repository => ({
       type: 'repository' as const,
       repository,
     }));
@@ -68,10 +58,14 @@ export const RepositoriesPage = () => {
     if (viewMode === 'grid' && repoItems.length > 0) {
       repoItems.unshift({
         type: 'import-repository',
+        disabled: isFrozen,
         onImportClicked: () => {
-          actions.openCreateSandboxModal({ initialTab: 'import' });
+          track('Repositories Page - Import Repository', {
+            codesandbox: 'V1',
+            event_source: 'UI',
+          });
+          actions.modalOpened({ modal: 'importRepository' });
         },
-        disabled: hasMaxPublicRepositories || hasMaxPrivateRepositories,
       });
     }
 
@@ -80,6 +74,16 @@ export const RepositoriesPage = () => {
 
   const itemsToShow = getItemsToShow();
   const isEmpty = itemsToShow.length === 0;
+
+  const renderMessageStripe = () => {
+    if (restrictsPublicRepos && !dismissedPermissionsBanner) {
+      return (
+        <RestrictedPublicReposImport onDismiss={dismissPermissionsBanner} />
+      );
+    }
+  };
+
+  const messageStripe = renderMessageStripe();
 
   return (
     <SelectionProvider
@@ -93,29 +97,14 @@ export const RepositoriesPage = () => {
       <Header
         activeTeam={activeTeam}
         showViewOptions={!isEmpty}
-        showBetaBadge
         title="All repositories"
       />
 
-      {!dismissedWorkspaceScopesMigrationMessage ? (
-        <Element paddingLeft={4} paddingRight={6} paddingY={4}>
-          <TemporaryWarningForWorkspaceScopesMigration
-            onDismiss={dismissWorkspaceScopesMigrationMessage}
-          />
+      {messageStripe && (
+        <Element paddingX={4} paddingBottom={4}>
+          {messageStripe}
         </Element>
-      ) : null}
-
-      {hasMaxPublicRepositories || hasMaxPrivateRepositories ? (
-        <Element paddingLeft={4} paddingRight={6} paddingY={4}>
-          <MaxReposFreeTeam />
-        </Element>
-      ) : null}
-
-      {restrictsPublicRepos && !dismissedPermissionsBanner ? (
-        <Element paddingLeft={4} paddingRight={6} paddingY={4}>
-          <RestrictedPublicReposImport onDismiss={dismissPermissionsBanner} />
-        </Element>
-      ) : null}
+      )}
 
       {isEmpty ? (
         <EmptyRepositories />

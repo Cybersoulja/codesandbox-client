@@ -34,11 +34,13 @@ const ComboButton = ({
         css={{
           borderTopRightRadius: 0,
           borderBottomRightRadius: 0,
-          fontWeight: 500,
-          fontSize: '12px',
-          lineHeight: 1,
-          letterSpacing: '-0.02em',
           flex: fillSpace ? 1 : 'initial',
+          position: 'relative',
+
+          '&:focus': {
+            // Allow box-shadow to appear on the right side.
+            zIndex: 1,
+          },
           ...customStyles,
         }}
         variant={variant}
@@ -84,21 +86,7 @@ const ComboButtonItem = ({
   disabled?: boolean;
   onSelect: () => void;
 }) => {
-  return (
-    <Menu.Item {...props}>
-      <Stack
-        css={{
-          fontWeight: 400,
-          fontSize: '12px',
-          lineHeight: '16px',
-          letterSpacing: '0.005em',
-          color: '#E5E5E5',
-        }}
-      >
-        {children}
-      </Stack>
-    </Menu.Item>
-  );
+  return <Menu.Item {...props}>{children}</Menu.Item>;
 };
 
 /**

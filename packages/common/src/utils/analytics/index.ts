@@ -1,6 +1,5 @@
 import VERSION from '../../version';
 import * as amplitude from './amplitude';
-import * as google from './google';
 import * as sentry from './sentry';
 import {
   ANONYMOUS_UID_KEY,
@@ -9,15 +8,7 @@ import {
   isAllowedEvent,
 } from './utils';
 
-if (process.env.NODE_ENV === 'production') {
-  setTimeout(() => {
-    identify('[Amplitude] Version', VERSION);
-  }, 5000);
-}
-
 export { getHashedUserId };
-
-export const initializeSentry = sentry.initialize;
 
 export const DNT = DO_NOT_TRACK_ENABLED;
 
@@ -83,7 +74,6 @@ export function trackPageview() {
     };
 
     amplitude.track('pageview', data);
-    google.trackPageView();
   }
 }
 
@@ -132,7 +122,6 @@ export default function track(eventName: string, secondArg: Object = {}) {
       path: location.pathname + location.search,
     };
     amplitude.track(eventName, data);
-    google.track(eventName, data);
     sentry.logBreadcrumb({
       type: 'analytics',
       message: eventName,

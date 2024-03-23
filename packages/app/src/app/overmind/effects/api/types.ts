@@ -1,4 +1,8 @@
 import { Sandbox } from '@codesandbox/common/lib/types';
+import {
+  CreditAddonType,
+  VMType,
+} from 'app/overmind/namespaces/checkout/types';
 
 export interface IModuleAPIResponse {
   id: string;
@@ -40,4 +44,41 @@ export type FinalizeSignUpOptions = {
   username: string;
   role: string;
   usage: string;
+  companyName: string;
+  companySize: string;
+};
+
+export type MetaFeatures = {
+  loginWithApple?: boolean;
+  loginWithGithub?: boolean;
+  loginWithGoogle?: boolean;
+  loginWithWorkos?: boolean;
+};
+
+export type VMTier = {
+  name: string;
+  shortid: VMType;
+  cpu: number;
+  memory: number;
+  storage: number;
+  creditBasis: number;
+  tier: number;
+};
+
+export type APIPricingResult = {
+  addons: Record<
+    CreditAddonType,
+    { credits: number; cost_month: number; sandboxes: number }
+  >;
+  base: {
+    flex: {
+      cost_month: number;
+      credits: number;
+      drafts: number;
+      members: number;
+      sandboxes: number;
+      storage: number;
+      vm_tier: number;
+    };
+  };
 };

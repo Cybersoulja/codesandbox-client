@@ -7,7 +7,9 @@ import { VariableGrid } from 'app/pages/Dashboard/Components/VariableGrid';
 import { SelectionProvider } from 'app/pages/Dashboard/Components/Selection';
 import { DashboardGridItem, PageTypes } from 'app/pages/Dashboard/types';
 import { TemplateFragmentDashboardFragment } from 'app/graphql/types';
-import { getPossibleTemplates } from '../../utils';
+import { Element } from '@codesandbox/components';
+import { RestrictedSandboxes } from 'app/components/StripeMessages/RestrictedSandboxes';
+import { useWorkspaceLimits } from 'app/hooks/useWorkspaceLimits';
 
 export const Templates = () => {
   const {
@@ -15,14 +17,11 @@ export const Templates = () => {
     activeTeam,
   } = useAppState();
   const { getPage } = useActions().dashboard;
+  const { hasReachedSandboxLimit } = useWorkspaceLimits();
 
   useEffect(() => {
     getPage(sandboxesTypes.TEMPLATES);
   }, [getPage, activeTeam]);
-
-  const possibleTemplates = sandboxes.TEMPLATES
-    ? getPossibleTemplates(sandboxes.TEMPLATES)
-    : [];
 
   const sandboxIdsToTemplate = new Map<
     string,
@@ -57,11 +56,14 @@ export const Templates = () => {
       <Header
         title="Templates"
         activeTeam={activeTeam}
-        templates={possibleTemplates}
         showViewOptions
-        showFilters
         showSortOptions
       />
+      {hasReachedSandboxLimit && (
+        <Element css={{ padding: '0 26px 16px 16px' }}>
+          <RestrictedSandboxes />
+        </Element>
+      )}
       <VariableGrid items={items} page={pageType} />
     </SelectionProvider>
   );

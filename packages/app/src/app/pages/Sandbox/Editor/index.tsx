@@ -7,11 +7,10 @@ import {
   Element,
   Stack,
 } from '@codesandbox/components';
-import { CreateSandbox } from 'app/components/CreateSandbox';
+import { GenericCreate } from 'app/components/Create/GenericCreate';
 import {
-  FreeViewOnlyStripe,
+  RestrictedSandbox,
   PaymentPending,
-  TrialWithoutPaymentInfo,
 } from 'app/components/StripeMessages';
 import VisuallyHidden from '@reach/visually-hidden';
 import css from '@styled-system/css';
@@ -24,7 +23,7 @@ import styled, { ThemeProvider } from 'styled-components';
 import { SubscriptionStatus } from 'app/graphql/types';
 import { UpgradeSSEToV2Stripe } from 'app/components/StripeMessages/UpgradeSSEToV2';
 import { useWorkspaceSubscription } from 'app/hooks/useWorkspaceSubscription';
-import { useShowBanner } from 'app/components/StripeMessages/TrialWithoutPaymentInfo';
+import { CreateBox } from 'app/components/Create/CreateBox';
 import { MainWorkspace as Content } from './Content';
 import { Container } from './elements';
 import ForkFrozenSandboxModal from './ForkFrozenSandboxModal';
@@ -36,7 +35,9 @@ import { Workspace } from './Workspace';
 import { CommentsAPI } from './Workspace/screens/Comments/API';
 import { FixedSignInBanner } from './FixedSignInBanner';
 
-type EditorTypes = { showNewSandboxModal?: boolean };
+type EditorTypes = {
+  showModalOnTop?: 'newSandbox' | 'newDevbox' | 'new';
+};
 
 const STATUS_BAR_SIZE = 22;
 
@@ -46,7 +47,7 @@ const StatusBar = styled.div`
   }
 `;
 
-export const Editor = ({ showNewSandboxModal }: EditorTypes) => {
+export const Editor = ({ showModalOnTop }: EditorTypes) => {
   const state = useAppState();
   const actions = useActions();
   const effects = useEffects();
@@ -63,10 +64,6 @@ export const Editor = ({ showNewSandboxModal }: EditorTypes) => {
     customVSCodeTheme: null,
   });
   const { subscription } = useWorkspaceSubscription();
-  const [
-    showTrialWithoutPaymentInfoBanner,
-    dismissTrialWithoutPaymentInfoBanner,
-  ] = useShowBanner();
 
   useEffect(() => {
     let timeout;
@@ -109,11 +106,17 @@ export const Editor = ({ showNewSandboxModal }: EditorTypes) => {
   }, [effects.vscode]);
 
   const sandbox = state.editor.currentSandbox;
+  const sandboxFromActiveWorkspace = sandbox?.team?.id === state.activeTeam;
+  const showRestrictedBanner =
+    sandboxFromActiveWorkspace && sandbox?.restricted;
+
   const hideNavigation =
     state.preferences.settings.zenMode && state.workspace.workspaceHidden;
   const { statusBar } = state.editor;
 
   const templateDef = sandbox && getTemplateDefinition(sandbox.template);
+  const showCloudSandboxConvert =
+    !state.environment.isOnPrem && state.hasLogIn && sandbox?.isSse;
 
   const getTopOffset = () => {
     if (state.preferences.settings.zenMode) {
@@ -128,9 +131,8 @@ export const Editor = ({ showNewSandboxModal }: EditorTypes) => {
     // Has MessageStripe
     if (
       subscription?.status === SubscriptionStatus.Unpaid ||
-      showTrialWithoutPaymentInfoBanner ||
-      sandbox?.freePlanEditingRestricted ||
-      (state.hasLogIn && sandbox?.isSse)
+      showRestrictedBanner ||
+      showCloudSandboxConvert
     ) {
       // Header height + MessageStripe
       return 3 * 16 + 44;
@@ -158,18 +160,13 @@ export const Editor = ({ showNewSandboxModal }: EditorTypes) => {
           <ComponentsThemeProvider theme={localState.theme.vscodeTheme}>
             {!state.hasLogIn && <FixedSignInBanner />}
 
-            {subscription?.status === SubscriptionStatus.Unpaid && (
-              <PaymentPending />
-            )}
+            {subscription?.status === SubscriptionStatus.Unpaid ||
+              (subscription?.status === SubscriptionStatus.Incomplete && (
+                <PaymentPending status={subscription?.status} />
+              ))}
 
-            {showTrialWithoutPaymentInfoBanner && (
-              <TrialWithoutPaymentInfo
-                onDismiss={dismissTrialWithoutPaymentInfoBanner}
-              />
-            )}
-
-            {sandbox?.freePlanEditingRestricted ? <FreeViewOnlyStripe /> : null}
-            {state.hasLogIn && sandbox?.isSse ? <UpgradeSSEToV2Stripe /> : null}
+            {showRestrictedBanner ? <RestrictedSandbox /> : null}
+            {showCloudSandboxConvert ? <UpgradeSSEToV2Stripe /> : null}
             <Header />
           </ComponentsThemeProvider>
         )}
@@ -227,11 +224,11 @@ export const Editor = ({ showNewSandboxModal }: EditorTypes) => {
               {state.workspace.workspaceHidden ? <div /> : <Workspace />}
               <Content theme={localState.theme} />
             </SplitPane>
-            {showSkeleton || showNewSandboxModal ? (
+            {showSkeleton || showModalOnTop ? (
               <ComponentsThemeProvider theme={localState.theme.vscodeTheme}>
                 <ContentSkeleton
                   style={
-                    state.editor.hasLoadedInitialModule && !showNewSandboxModal
+                    state.editor.hasLoadedInitialModule && !showModalOnTop
                       ? {
                           opacity: 0,
                         }
@@ -240,7 +237,7 @@ export const Editor = ({ showNewSandboxModal }: EditorTypes) => {
                         }
                   }
                 />
-                {showNewSandboxModal ? (
+                {showModalOnTop ? (
                   <Element
                     css={css({
                       width: '100vw',
@@ -258,31 +255,35 @@ export const Editor = ({ showNewSandboxModal }: EditorTypes) => {
                         width: '100vw',
                         height: '100vh',
                         position: 'fixed',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                       })}
-                    />
-                    <Element margin={6}>
-                      <Element marginTop={80}>
-                        <Stack align="center" justify="center">
-                          <Element
-                            css={css({
-                              backgroundColor: 'sideBar.background',
-                              maxWidth: '100%',
-                              width: 1200,
-                              position: 'relative',
-                              zIndex: 100,
+                    >
+                      <Element
+                        css={css({
+                          backgroundColor: 'sideBar.background',
+                          maxWidth: '100%',
+                          width: 950,
+                          position: 'relative',
+                          marginTop: '-200px',
+                          borderRadius: '8px',
 
-                              '@media screen and (max-width: 800px)': {
-                                position: 'absolute',
-                                top: '50%',
-                                transform: 'translateY(-50%)',
-                                margin: 0,
-                              },
-                            })}
-                            marginTop={8}
-                          >
-                            <CreateSandbox />
-                          </Element>
-                        </Stack>
+                          '@media screen and (max-width: 950)': {
+                            width: 'auto',
+                            margin: 0,
+                          },
+                        })}
+                      >
+                        {showModalOnTop === 'newSandbox' && (
+                          <CreateBox isModal={false} type="sandbox" />
+                        )}
+                        {showModalOnTop === 'newDevbox' && (
+                          <CreateBox isModal={false} type="devbox" />
+                        )}
+                        {showModalOnTop === 'new' && (
+                          <GenericCreate isModal={false} />
+                        )}
                       </Element>
                     </Element>
                   </Element>

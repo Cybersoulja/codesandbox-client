@@ -1,14 +1,10 @@
-import React, { useMemo } from 'react';
-import { RepoFragmentDashboardFragment } from 'app/graphql/types';
+import React from 'react';
 import {
-  Badge,
   Stack,
   Text,
   Input,
   Icon,
   IconButton,
-  Link,
-  Tooltip,
   InteractiveOverlay,
   Element,
 } from '@codesandbox/components';
@@ -18,6 +14,7 @@ import { SandboxItemComponentProps } from './types';
 import { StyledCard } from '../shared/StyledCard';
 import { useSandboxThumbnail } from './useSandboxThumbnail';
 import { Brightness } from './useImageBrightness';
+import { SandboxBadge } from './SandboxBadge';
 
 type SandboxTitleProps = {
   brightness?: Brightness;
@@ -75,7 +72,7 @@ const SandboxTitle: React.FC<SandboxTitleProps> = React.memo(
             />
           </form>
         ) : (
-          <Stack gap={2} align="flex-start" css={{ overflow: 'hidden' }}>
+          <Stack gap={3} align="flex-start" css={{ overflow: 'hidden' }}>
             <Element css={{ flexShrink: 0 }}>
               <TemplateIcon width="16" height="16" />
             </Element>
@@ -88,6 +85,7 @@ const SandboxTitle: React.FC<SandboxTitleProps> = React.memo(
                 onDoubleClick={editing ? undefined : onDoubleClick}
                 onBlur={onBlur}
                 onContextMenu={onContextMenu}
+                title={sandboxTitle}
                 {...props}
               >
                 <Text size={13} weight="medium" color="inherit" truncate>
@@ -107,6 +105,7 @@ const SandboxTitle: React.FC<SandboxTitleProps> = React.memo(
                   onDoubleClick={editing ? undefined : onDoubleClick}
                   onBlur={onBlur}
                   onContextMenu={onContextMenu}
+                  title={sandboxTitle}
                   {...props}
                 >
                   <Text size={13} weight="medium" color="inherit" truncate>
@@ -137,39 +136,18 @@ const SandboxTitle: React.FC<SandboxTitleProps> = React.memo(
 
 type SandboxStatsProps = {
   isFrozen?: boolean;
-  prNumber?: number;
-  restricted: boolean;
-  showBetaBadge: boolean;
-  originalGit?: RepoFragmentDashboardFragment['originalGit'];
-} & Pick<SandboxItemComponentProps, 'noDrag' | 'lastUpdated' | 'PrivacyIcon'>;
+} & Pick<
+  SandboxItemComponentProps,
+  'noDrag' | 'timeAgo' | 'PrivacyIcon' | 'sandbox' | 'restricted'
+>;
 const SandboxStats: React.FC<SandboxStatsProps> = React.memo(
-  ({
-    isFrozen,
-    restricted,
-    showBetaBadge,
-    noDrag,
-    lastUpdated,
-    PrivacyIcon,
-    prNumber,
-    originalGit,
-  }) => {
-    const lastUpdatedText = (
-      <Text key="last-updated" size={12} truncate>
-        {shortDistance(lastUpdated)}
+  ({ isFrozen, noDrag, timeAgo, PrivacyIcon, sandbox, restricted }) => {
+    const boxType = sandbox.isV2 ? 'devbox' : 'sandbox';
+    const timeAgoText = (
+      <Text size={12} truncate>
+        {shortDistance(timeAgo)}
       </Text>
     );
-
-    const badge = useMemo<JSX.Element>(() => {
-      if (restricted) {
-        return <Badge variant="trial">Restricted</Badge>;
-      }
-
-      if (showBetaBadge) {
-        return <Badge icon="cloud">Beta</Badge>;
-      }
-
-      return null;
-    }, [restricted, showBetaBadge]);
 
     return (
       <Stack
@@ -177,29 +155,18 @@ const SandboxStats: React.FC<SandboxStatsProps> = React.memo(
         align="center"
         css={{
           height: '16px',
+          color: '#A6A6A6',
         }}
         className="sandbox-stats"
       >
         <Stack gap={2} align="center">
           <PrivacyIcon />
           {isFrozen && (
-            <Tooltip label="Frozen Sandbox">
-              <Icon size={16} title="Frozen Sandbox" name="frozen" />
-            </Tooltip>
+            <Icon size={16} title={`Protected ${boxType}`} name="frozen" />
           )}
-          {prNumber ? (
-            <Link
-              title="Open pull request on GitHub"
-              css={{ display: 'flex' }}
-              href={`https://github.com/${originalGit.username}/${originalGit.repo}/pull/${prNumber}`}
-              target="_blank"
-            >
-              <Icon size={16} name="pr" color="#5BC266" />
-            </Link>
-          ) : null}
-          {noDrag ? null : lastUpdatedText}
+          {noDrag ? null : timeAgoText}
         </Stack>
-        {badge}
+        <SandboxBadge sandbox={sandbox} restricted={restricted} />
       </Stack>
     );
   }
@@ -208,15 +175,17 @@ const SandboxStats: React.FC<SandboxStatsProps> = React.memo(
 export const SandboxCard = ({
   sandbox,
   noDrag,
-  lastUpdated,
+  timeAgo,
   PrivacyIcon,
   screenshotUrl,
+  restricted,
   // interactions
   selected,
-  restricted,
   // drag preview
   thumbnailRef,
   isDragging,
+
+  'data-selection-id': dataSelectionId,
   ...props
 }: SandboxItemComponentProps) => {
   const thumbnail = useSandboxThumbnail({
@@ -235,6 +204,7 @@ export const SandboxCard = ({
     <InteractiveOverlay>
       <StyledCard
         dimmed={isDragging}
+        data-selection-id={dataSelectionId}
         css={{
           overflow: 'hidden',
 
@@ -312,13 +282,11 @@ export const SandboxCard = ({
           <SandboxTitle brightness={thumbnail.brightness} {...props} />
           <SandboxStats
             noDrag={noDrag}
-            originalGit={sandbox.originalGit}
-            prNumber={sandbox.prNumber}
-            lastUpdated={lastUpdated}
+            timeAgo={timeAgo}
             isFrozen={sandbox.isFrozen && !sandbox.customTemplate}
             PrivacyIcon={PrivacyIcon}
             restricted={restricted}
-            showBetaBadge={sandbox.isV2}
+            sandbox={sandbox}
           />
         </CardContent>
       </StyledCard>

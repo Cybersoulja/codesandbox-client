@@ -1,8 +1,4 @@
-import {
-  DNT,
-  trackPageview,
-  identify,
-} from '@codesandbox/common/lib/utils/analytics';
+import { DNT, trackPageview } from '@codesandbox/common/lib/utils/analytics';
 import _debug from '@codesandbox/common/lib/utils/debug';
 import { notificationState } from '@codesandbox/common/lib/utils/notifications';
 import { Toasts } from '@codesandbox/notifications';
@@ -11,16 +7,13 @@ import { Loadable } from 'app/utils/Loadable';
 import React, { useEffect } from 'react';
 import { SignInModal } from 'app/components/SignInModal';
 import { Redirect, Route, Switch, withRouter } from 'react-router-dom';
-import { CreateSandboxModal } from 'app/components/CreateSandbox/CreateSandboxModal';
-import { initializeExperimentStore } from '@codesandbox/ab';
-import {
-  getExperimentUserId,
-  AB_TESTING_URL,
-} from '@codesandbox/common/lib/config/env';
-
+import { Debug } from 'app/components/Debug';
+import { useCookieConsent } from '../hooks/useCookieConsent';
 import { ErrorBoundary } from './common/ErrorBoundary';
 import { Modals } from './common/Modals';
 import { DevAuthPage } from './DevAuth';
+import { StandalonePage } from './Standalone';
+import { CreateWorkspace, UpgradeWorkspace } from './WorkspaceFlows';
 import { Container, Content } from './elements';
 import { Dashboard } from './Dashboard';
 import { Sandbox } from './Sandbox';
@@ -66,6 +59,9 @@ const VercelSignIn = Loadable(
 );
 const PreviewAuth = Loadable(
   () => import(/* webpackChunkName: 'page-vercel' */ './PreviewAuth')
+);
+const SandpackSecret = Loadable(
+  () => import(/* webpackChunkName: 'page-vercel' */ './SandpackSecret')
 );
 const NotFound = Loadable(() =>
   import(/* webpackChunkName: 'page-not-found' */ './common/NotFound').then(
@@ -134,33 +130,16 @@ const SignUp = Loadable(() =>
     default: module.SignUp,
   }))
 );
-const Pro = Loadable(() =>
-  import(/* webpackChunkName: 'page-pro' */ './Pro').then(module => ({
-    default: module.ProPage,
-  }))
-);
-const Curator = Loadable(() =>
-  import(/* webpackChunkName: 'page-curator' */ './Curator').then(module => ({
-    default: module.Curator,
-  }))
-);
 
 // @ts-ignore
 const CodeSadbox = () => this[`💥`].kaboom();
 
 const Boundary = withRouter(ErrorBoundary);
 
-initializeExperimentStore(
-  AB_TESTING_URL,
-  getExperimentUserId,
-  async (key, value) => {
-    await identify(key, value);
-  }
-);
-
 const RoutesComponent: React.FC = () => {
   const { appUnmounted } = useActions();
-  const { modals, activeTeamInfo } = useAppState();
+  const { modals, activeTeamInfo, environment } = useAppState();
+  useCookieConsent(environment.amplitudeKey);
 
   useEffect(() => () => appUnmounted(), [appUnmounted]);
 
@@ -187,25 +166,28 @@ const RoutesComponent: React.FC = () => {
       <Boundary>
         <Content>
           <Switch>
-            <Route exact path="/" render={() => <Redirect to="/s" />} />
+            <Route exact path="/" render={() => <Redirect to="/dashboard" />} />
             <Route exact path="/s/github" component={GitHub} />
             <Route exact path="/s/cli" component={CliInstructions} />
             <Route
               exact
               path="/s"
-              component={() => <Sandbox showNewSandboxModal />}
+              component={() => <Sandbox showModalOnTop="newSandbox" />}
             />
             <Route
               exact
-              path="/s2"
-              component={() => <Sandbox showNewSandboxModal />}
+              path="/d"
+              component={() => <Sandbox showModalOnTop="newDevbox" />}
+            />
+            <Route
+              exact
+              path="/new"
+              component={() => <Sandbox showModalOnTop="new" />}
             />
             <Route path="/invite/:token" component={TeamInvitation} />
 
             <Route path="/phew" component={Phew} />
             <Route path="/dashboard" component={Dashboard} />
-            <Route path="/new-dashboard" component={Dashboard} />
-            <Route path="/curator" component={Curator} />
             <Route path="/s/:id*" component={Sandbox} />
             <Route path="/live/:roomId" component={Live} />
             <Route path="/signin" exact component={SignIn} />
@@ -216,26 +198,36 @@ const RoutesComponent: React.FC = () => {
             <Route path="/u/:username" component={Profile} />
             <Route path="/u2/:username" component={Profile} />
             <Route path="/search" component={Search} />
-            <Route path="/pro" component={Pro} />
+
             <Route path="/cli/login" component={CLI} />
             <Route path="/client/login" component={MobileAuth} />
             <Route path="/vscode/login" component={VSCodeAuth} />
             <Route path="/auth/zeit" component={VercelSignIn} />
             <Route path="/auth/sandbox/:id" component={PreviewAuth} />
+            <Route path="/auth/sandpack/:teamId" component={SandpackSecret} />
             {(process.env.LOCAL_SERVER || process.env.STAGING) && (
               <Route path="/auth/dev" component={DevAuthPage} />
             )}
             <Route path="/codesadbox" component={CodeSadbox} />
-            <Redirect from="/patron" to="/pro" />
+            <Route path="/standalone/:componentId" component={StandalonePage} />
+            <Route path="/create-workspace" component={CreateWorkspace} />
+            <Route path="/upgrade" component={UpgradeWorkspace} />
+
+            {environment.isOnPrem ? (
+              <Redirect from="/pro" to="/dashboard" />
+            ) : (
+              <Redirect from="/pro" to="/upgrade" />
+            )}
+
             <Route component={NotFound} />
           </Switch>
         </Content>
         <Modals />
         <SignInModal />
-        <CreateSandboxModal />
         {modals.moveSandboxModal.isCurrent && activeTeamInfo && (
           <MoveSandboxFolderModal />
         )}
+        <Debug />
       </Boundary>
     </Container>
   );

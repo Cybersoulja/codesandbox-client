@@ -1,66 +1,39 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAppState, useActions } from 'app/overmind';
-import {
-  Badge,
-  Stack,
-  Text,
-  Button,
-  Icon,
-  SkeletonText,
-} from '@codesandbox/components';
-import css from '@styled-system/css';
+import { Stack, Text, Button, Icon } from '@codesandbox/components';
 import { Breadcrumbs, BreadcrumbProps } from '../Breadcrumbs';
-import { FilterOptions } from '../Filters/FilterOptions';
 import { ViewOptions } from '../Filters/ViewOptions';
 import { SortOptions } from '../Filters/SortOptions';
 import { GRID_MAX_WIDTH, GUTTER } from '../VariableGrid/constants';
-import { TemplateFilter } from '../../Content/utils';
-
-interface IAction {
-  title: string;
-  action: () => void;
-}
 
 type Props = {
-  templates?: TemplateFilter[];
-  actions?: IAction[];
   path?: string;
   title?: string;
   createNewFolder?: () => void;
-  showFilters?: boolean;
   showViewOptions?: boolean;
   showSortOptions?: boolean;
-  showBetaBadge?: boolean;
   nestedPageType?: BreadcrumbProps['nestedPageType'];
   albumId?: string;
   activeTeam: string;
-  CustomFilters?: React.ReactElement;
   selectedRepo?: { owner: string; name: string; assignedTeamId?: string };
-  loading?: boolean;
   readOnly?: boolean;
 };
 
 export const Header = ({
   createNewFolder,
-  templates,
   nestedPageType,
   albumId,
   path,
   title,
   activeTeam,
-  showFilters = false,
   showViewOptions = false,
   showSortOptions = false,
-  showBetaBadge = false,
-  CustomFilters,
-  actions = [],
   selectedRepo,
-  loading = false,
   readOnly = false,
 }: Props) => {
   const location = useLocation();
-  const { modals, dashboard: dashboardActions } = useActions();
+  const { modalOpened, dashboard: dashboardActions } = useActions();
   const { dashboard } = useAppState();
 
   const repositoriesListPage =
@@ -70,64 +43,38 @@ export const Header = ({
     '/repositories/github'
   );
 
-  const [experimentalMode] = useState(() => {
-    return window.localStorage.getItem('CSB_DEBUG') === 'ENABLED';
-  });
-
-  const selectedRepoIsStarred =
-    selectedRepo &&
-    dashboard.starredRepos.some(
-      repo =>
-        repo.owner === selectedRepo.owner && repo.name === selectedRepo.name
-    );
-
   return (
     <Stack
       align="center"
       justify="space-between"
       css={{
         width: `calc(100% - ${2 * GUTTER}px)`,
+        paddingRight: GUTTER / 2,
         maxWidth: GRID_MAX_WIDTH - 2 * GUTTER,
         margin: '0 auto', // Negative margin top to align visually w/ the sidebar
       }}
-      paddingBottom={7}
+      paddingBottom={4}
     >
       <Stack align="center" gap={2}>
-        {loading ? (
-          <SkeletonText css={css({ height: 6 })} />
+        {title ? (
+          <Text size={6}>{title}</Text>
         ) : (
-          <>
-            {title ? (
-              <Text size={6}>{title}</Text>
-            ) : (
-              <Breadcrumbs
-                nestedPageType={nestedPageType}
-                activeTeam={activeTeam}
-                path={path}
-                albumId={albumId}
-              />
-            )}
-            {showBetaBadge && <Badge icon="cloud">Beta</Badge>}
-          </>
+          <Breadcrumbs
+            nestedPageType={nestedPageType}
+            activeTeam={activeTeam}
+            path={path}
+            albumId={albumId}
+          />
         )}
       </Stack>
-      <Stack gap={4} align="center">
+      <Stack gap={1} align="center">
         {location.pathname.includes('/sandboxes') && (
-          <Button
-            onClick={createNewFolder}
-            variant="link"
-            css={css({
-              fontSize: 2,
-              color: 'mutedForeground',
-              padding: 0,
-              width: 'auto',
-            })}
-          >
+          <Button onClick={createNewFolder} variant="ghost" autoWidth>
             <Icon
-              name="plus"
-              size={20}
+              name="folder"
+              size={16}
               title="New"
-              css={css({ paddingRight: 2 })}
+              css={{ marginRight: '8px' }}
             />
             New folder
           </Button>
@@ -135,51 +82,19 @@ export const Header = ({
         {repositoriesListPage && dashboard.viewMode === 'list' && (
           <Button
             onClick={() =>
-              !readOnly && modals.newSandboxModal.open({ initialTab: 'import' })
+              !readOnly && modalOpened({ modal: 'importRepository' })
             }
-            variant="link"
-            css={css({
-              fontSize: 2,
-              color: 'mutedForeground',
-              padding: 0,
-              width: 'auto',
-            })}
+            variant="ghost"
             disabled={readOnly}
+            autoWidth
           >
             <Icon
               name="plus"
-              size={20}
+              size={16}
               title="Import repo"
-              css={css({ paddingRight: 2 })}
+              css={{ marginRight: '8px' }}
             />
             Import repo
-          </Button>
-        )}
-
-        {repositoryBranchesPage && selectedRepo && experimentalMode && (
-          <Button
-            css={css({
-              fontSize: 2,
-              color: 'mutedForeground',
-              padding: 0,
-              width: 'auto',
-            })}
-            onClick={() => {
-              if (selectedRepoIsStarred) {
-                dashboardActions.unstarRepo(selectedRepo);
-              } else {
-                dashboardActions.starRepo(selectedRepo);
-              }
-            }}
-            variant="link"
-          >
-            <Icon
-              name="star"
-              size={20}
-              title="Star repo"
-              css={css({ paddingRight: 2 })}
-            />
-            {selectedRepoIsStarred ? 'Unstar' : 'Star'}
           </Button>
         )}
 
@@ -195,46 +110,20 @@ export const Header = ({
                 });
               }}
               variant="ghost"
-              css={css({
-                fontSize: 2,
-                color: 'mutedForeground',
-                width: 'auto',
-              })}
               disabled={readOnly}
+              autoWidth
             >
               <Icon
-                name="plus"
-                size={20}
+                name="branch"
+                size={16}
                 title="Create branch"
-                css={css({ paddingRight: 2 })}
+                css={{ marginRight: '8px' }}
               />
               Create branch
             </Button>
           )}
 
-        {actions.map(action => (
-          <Button
-            key={action.title}
-            onClick={action.action}
-            variant="link"
-            css={css({
-              fontSize: 2,
-              color: 'mutedForeground',
-              padding: 0,
-              width: 'auto',
-            })}
-          >
-            {action.title}
-          </Button>
-        ))}
-
-        <Stack gap={4}>
-          {showFilters && (
-            <FilterOptions
-              possibleTemplates={templates}
-              CustomFilters={CustomFilters}
-            />
-          )}
+        <Stack gap={1}>
           {showSortOptions && <SortOptions />}
           {showViewOptions && <ViewOptions />}
         </Stack>

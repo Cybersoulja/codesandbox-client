@@ -1,123 +1,92 @@
 import {
-  SubscriptionInterval,
-  SubscriptionOrigin,
+  CurrentTeamInfoFragmentFragment,
   SubscriptionPaymentProvider,
   SubscriptionStatus,
-  SubscriptionType,
 } from 'app/graphql/types';
 import { useAppState } from 'app/overmind';
-import { isBefore, startOfToday } from 'date-fns';
-import { useWorkspaceAuthorization } from './useWorkspaceAuthorization';
+import { useControls } from 'leva';
+
+export enum SubscriptionDebugStatus {
+  'DEFAULT' = 'Default (use API data)',
+  'NO_SUBSCRIPTION' = 'Free (without prior subscription)',
+}
 
 export const useWorkspaceSubscription = (): WorkspaceSubscriptionReturn => {
-  const { activeTeamInfo } = useAppState();
-  const { isTeamSpace } = useWorkspaceAuthorization();
+  const { activeTeamInfo, environment } = useAppState();
+
+  const options: SubscriptionDebugStatus[] = [SubscriptionDebugStatus.DEFAULT];
+
+  if (activeTeamInfo) {
+    options.push(SubscriptionDebugStatus.NO_SUBSCRIPTION);
+  }
+
+  const { debugStatus } = useControls(
+    'Subscription',
+    {
+      debugStatus: {
+        label: 'Status',
+        value: SubscriptionDebugStatus.DEFAULT,
+        options,
+      },
+    },
+    [options]
+  );
 
   if (!activeTeamInfo) {
     return NO_WORKSPACE;
   }
 
-  const subscription = activeTeamInfo.subscription;
+  const subscription =
+    debugStatus === SubscriptionDebugStatus.NO_SUBSCRIPTION
+      ? null
+      : activeTeamInfo.subscription;
 
   if (!subscription) {
-    return {
-      ...NO_SUBSCRIPTION,
-      isEligibleForTrial: isTeamSpace, // Currently, only teams are eligible for trial.
-    };
+    return NO_SUBSCRIPTION;
   }
 
   const isPro =
-    subscription.status === SubscriptionStatus.Active ||
-    subscription.status === SubscriptionStatus.Trialing;
+    environment.isOnPrem || // On prem workspaces are pro by default
+    subscription.status === SubscriptionStatus.Active;
   const isFree = !isPro;
 
   const hasPaymentMethod = subscription.paymentMethodAttached;
 
-  const hasActiveTeamTrial =
-    isTeamSpace && subscription.status === SubscriptionStatus.Trialing;
-
-  const today = startOfToday();
-  const hasExpiredTeamTrial =
-    isTeamSpace && // is a team
-    subscription.status !== SubscriptionStatus.Active && // the subscription isn't active
-    !hasPaymentMethod && // there's no payment method attached
-    isBefore(new Date(subscription.trialEnd), today); // the trial ended before today;
-
-  const numberOfSeats =
-    (isFree ? activeTeamInfo.limits.maxEditors : subscription.quantity) || 1;
-
-  const isPatron =
-    subscription.origin === SubscriptionOrigin.Legacy ||
-    subscription.origin === SubscriptionOrigin.Patron;
-
   const isPaddle =
     subscription.paymentProvider === SubscriptionPaymentProvider.Paddle;
 
-  const isStripe =
-    subscription.paymentProvider === SubscriptionPaymentProvider.Stripe;
-
   return {
     subscription,
-    numberOfSeats,
     isPro,
     isFree,
-    isEligibleForTrial: false, // Teams with an active or past subscription are not eligible for trial.
-    hasActiveTeamTrial,
-    hasExpiredTeamTrial,
     hasPaymentMethod,
-    isPatron,
     isPaddle,
-    isStripe,
   };
 };
 
 const NO_WORKSPACE = {
   subscription: undefined,
-  numberOfSeats: undefined,
   isPro: undefined,
   isFree: undefined,
-  isEligibleForTrial: undefined,
-  hasActiveTeamTrial: undefined,
-  hasExpiredTeamTrial: undefined,
   hasPaymentMethod: undefined,
-  isPatron: undefined,
   isPaddle: undefined,
-  isStripe: undefined,
 };
 
 const NO_SUBSCRIPTION = {
   subscription: null,
-  numberOfSeats: 0,
   isPro: false,
   isFree: true,
-  hasActiveTeamTrial: false,
-  hasExpiredTeamTrial: false,
   hasPaymentMethod: false,
-  isPatron: false,
   isPaddle: false,
-  isStripe: false,
 };
 
 export type WorkspaceSubscriptionReturn =
   | typeof NO_WORKSPACE
-  | (typeof NO_SUBSCRIPTION & { isEligibleForTrial: boolean })
+  | typeof NO_SUBSCRIPTION
   | {
-      subscription: {
-        cancelAt?: string;
-        billingInterval?: SubscriptionInterval | null;
-        status: SubscriptionStatus;
-        type: SubscriptionType;
-        trialEnd?: string;
-        trialStart?: string;
-      };
-      numberOfSeats: number;
+      subscription: CurrentTeamInfoFragmentFragment['subscription'];
       isPro: boolean;
       isFree: boolean;
-      isEligibleForTrial: false;
-      hasActiveTeamTrial: boolean;
-      hasExpiredTeamTrial: boolean;
       hasPaymentMethod: boolean;
-      isPatron: boolean;
       isPaddle: boolean;
-      isStripe: boolean;
     };

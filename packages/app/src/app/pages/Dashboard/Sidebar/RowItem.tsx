@@ -4,6 +4,7 @@ import {
   SidebarListAction,
   Stack,
   Icon,
+  Text,
 } from '@codesandbox/components';
 import { PageTypes } from 'app/overmind/namespaces/dashboard/types';
 import React from 'react';
@@ -11,6 +12,7 @@ import { Link as RouterLink, useHistory, useLocation } from 'react-router-dom';
 import { ENTER } from '@codesandbox/common/lib/utils/keycodes';
 import css from '@styled-system/css';
 import { trackImprovedDashboardEvent } from '@codesandbox/common/lib/utils/analytics';
+import { CSSProperties } from 'styled-components';
 import { DragItemType, useDrop } from '../utils/dnd';
 import {
   SidebarContext,
@@ -57,6 +59,7 @@ interface RowItemProps {
   setFoldersVisibility?: (val: boolean) => void;
   folderPath?: string;
   nestingLevel?: number;
+  style?: CSSProperties;
 }
 
 export const RowItem: React.FC<RowItemProps> = ({
@@ -67,6 +70,7 @@ export const RowItem: React.FC<RowItemProps> = ({
   page,
   icon,
   setFoldersVisibility = null,
+  style = {},
   ...props
 }) => {
   const accepts: Array<'sandbox' | 'folder' | 'template'> = [];
@@ -87,7 +91,9 @@ export const RowItem: React.FC<RowItemProps> = ({
     collect: monitor => ({
       isOver: monitor.isOver(),
       canDrop:
-        monitor.canDrop() && !isSamePath(monitor.getItem(), page, usedPath),
+        monitor.canDrop() &&
+        page === 'sandboxes' &&
+        !isSamePath(monitor.getItem(), page, usedPath),
       isDragging: !!monitor.getItem(),
     }),
   });
@@ -131,30 +137,26 @@ export const RowItem: React.FC<RowItemProps> = ({
         minHeight: nestingLevel ? '32px' : '36px',
         paddingX: 0,
         opacity: isDragging && !canDrop ? 0.25 : 1,
-        color:
-          isCurrentLink || (isDragging && canDrop)
-            ? 'sideBar.foreground'
-            : 'sideBarTitle.foreground',
+        display: 'flex',
+        flexDirection: 'column',
+        color: isCurrentLink ? 'sideBar.foreground' : 'sideBarTitle.foreground',
         backgroundColor:
           canDrop && isOver ? 'list.hoverBackground' : 'transparent',
-        transition: 'all ease-in',
-        transitionDuration: theme => theme.speeds[1],
-        a: {
-          ':focus': {
-            // focus state is handled by SidebarListAction:focus-within
-            outline: 'none',
-          },
-        },
+        ...style,
       })}
     >
       {props.children || (
         <Link
           {...{
-            ...(page === 'external'
-              ? { href: linkTo, target: '_blank' }
-              : { to: linkTo }),
+            ...(page === 'external' ? { href: linkTo } : { to: linkTo }),
             as: page === 'external' ? 'a' : RouterLink,
             style: linkStyles,
+            css: {
+              '&:focus-visible': {
+                outlineOffset: '-1px',
+                outline: '1px solid #ac9cff',
+              },
+            },
             onKeyDown: event => {
               if (event.keyCode === ENTER) {
                 history.push(linkTo, { focus: 'FIRST_ITEM' });
@@ -171,16 +173,25 @@ export const RowItem: React.FC<RowItemProps> = ({
               return false;
             },
           }}
+          title={`Open ${name}`}
         >
           <Stack
             as="span"
-            css={{ width: '40px' }}
+            css={{
+              width: '42px',
+              paddingLeft: '16px',
+              paddingRight: '4px',
+              flexShrink: 0,
+              overflow: 'hidden',
+            }}
             align="center"
             justify="center"
           >
             <Icon name={icon} />
           </Stack>
-          {name}
+          <Text truncate lineHeight="16px" color="inherit">
+            {name}
+          </Text>
         </Link>
       )}
     </SidebarListAction>

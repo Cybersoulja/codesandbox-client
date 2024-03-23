@@ -1,7 +1,7 @@
 /* eslint-disable camelcase */
-import React from 'react';
+import type React from 'react';
 
-import { TemplateType } from '../templates';
+import type { TemplateType } from '../templates';
 
 export type SSEContainerStatus =
   | 'initializing'
@@ -148,6 +148,7 @@ export type CurrentUser = {
   };
   sendSurvey: boolean;
   deletionRequested: boolean;
+  insertedAt: string;
   githubProfile:
     | {
         data: null;
@@ -277,33 +278,6 @@ export type RoomInfo = {
   };
 };
 
-export type PaymentDetails = {
-  brand: string;
-  expMonth: number;
-  expYear: number;
-  last4: string;
-  name: string;
-};
-
-export type SandboxPick = {
-  title: string;
-  description: string;
-  id: string;
-  insertedAt: string;
-};
-
-export type MiniSandbox = {
-  viewCount: number;
-  title: string;
-  template: string;
-  id: string;
-  picks: SandboxPick[];
-  description: string;
-  git: GitInfo;
-  author: User;
-  screenshotUrl: string;
-};
-
 export type GitCommit = {
   git: GitInfo;
   merge: boolean;
@@ -357,23 +331,6 @@ export type UserQuery = {
   username: string;
 };
 
-export type PopularSandboxes = {
-  startDate: string;
-  sandboxes: MiniSandbox[];
-  endDate: string;
-};
-
-export type PickedSandboxes = {
-  sandboxes: MiniSandbox[];
-  page: number;
-};
-
-export type PickedSandboxDetails = {
-  description: string;
-  id: string;
-  title: string;
-};
-
 export type SandboxAuthor = {
   id: string;
   username: string;
@@ -382,7 +339,6 @@ export type SandboxAuthor = {
   badges: Badge[];
   subscriptionSince: string | null;
   subscriptionPlan: 'pro' | 'patron';
-  personalWorkspaceId: string;
 };
 
 export type NpmRegistry = {
@@ -391,6 +347,7 @@ export type NpmRegistry = {
   registryUrl: string;
   proxyEnabled?: boolean;
   registryAuthToken?: string;
+  registryAuthType?: string;
 };
 
 export enum CommentsFilterOption {
@@ -481,13 +438,14 @@ export type Sandbox = {
   } | null;
   roomId: string | null;
   privacy: 0 | 1 | 2;
+  draft: boolean;
+  restricted: boolean;
   author: SandboxAuthor | null;
   forkedFromSandbox: ForkedSandbox | null;
   git: GitInfo | null;
   tags: string[];
   isFrozen: boolean;
   isSse?: boolean;
-  alwaysOn: boolean;
   environmentVariables: {
     [key: string]: string;
   } | null;
@@ -523,12 +481,8 @@ export type Sandbox = {
   // New restrictions object. Remove the optional from the properties
   // when resrcitions are deployed to production.
   restrictions?: {
-    freePlanEditingRestricted?: boolean;
     liveSessionsRestricted?: boolean;
   };
-  // Legacy freePlanEditingRestricted. We can remove this when the
-  // restrictions above have been implemented.
-  freePlanEditingRestricted: boolean;
 };
 
 export type PrettierConfig = {
@@ -702,44 +656,26 @@ export type ServerPort = {
   name?: string;
 };
 
+/**
+ * The VercelUser type is a selection of what we use and what is or can be returned from
+ * the user endpoint. The whole list of types can be found in the Vercel docs: https://vercel.com/docs/rest-api/interfaces#authuser
+ */
 export type VercelUser = {
-  uid: string;
   email: string;
-  name: string;
-  username: string;
-  avatar: string;
-  platformVersion: number;
-  billing: {
-    plan: string;
-    period: string;
-    trial: string;
-    cancelation: string;
-    addons: string;
-  };
-  bio: string;
-  website: string;
-  profiles: Array<{
-    service: string;
-    link: string;
-  }>;
 };
 
+/**
+ * The VercelCreator type is a selection of what we use and what is or can be returned for
+ * the creator property on the deployments endpoint.
+ */
 export type VercelCreator = {
   uid: string;
 };
 
-export type VercelScale = {
-  current: number;
-  min: number;
-  max: number;
-};
-
-export type VercelAlias = {
-  alias: string;
-  created: string;
-  uid: string;
-};
-
+/**
+ * Can't find where these types are documented on the Vercel side, but we're using these states
+ * to show active deployment status to the user.
+ */
 export enum VercelDeploymentState {
   DEPLOYING = 'DEPLOYING',
   INITIALIZING = 'INITIALIZING',
@@ -752,29 +688,25 @@ export enum VercelDeploymentState {
   ERROR = 'ERROR',
 }
 
-export enum VercelDeploymentType {
-  'NPM',
-  'DOCKER',
-  'STATIC',
-  'LAMBDAS',
-}
-
+/**
+ * The VercelDeployment type is a selection of what we use and what is or can be returned from
+ * the deployments endpoint.
+ */
 export type VercelDeployment = {
   uid: string;
   name: string;
   url: string;
   created: number;
   state: VercelDeploymentState;
-  instanceCount: number;
-  alias: VercelAlias[];
-  scale: VercelScale;
-  createor: VercelCreator;
-  type: VercelDeploymentType;
 };
 
+/**
+ * The VercelConfig type is a selection of (now legacy) properties we use from the vercel configuration
+ * file. More info can be found in the Vercel docs: https://vercel.com/docs/concepts/projects/project-configuration#legacy
+ */
 export type VercelConfig = {
   name?: string;
-  alias?: string;
+  env?: string;
 };
 
 export type NetlifySite = {
@@ -847,7 +779,8 @@ export type SandboxUrlSourceData = {
   alias?: string | null;
   git?: GitInfo | null;
   isV2?: boolean;
-  query?: Record<string, string>;
+  isSse?: boolean;
+  query?: Record<string, string> | URLSearchParams;
 };
 
 export type DevToolsTabPosition = {

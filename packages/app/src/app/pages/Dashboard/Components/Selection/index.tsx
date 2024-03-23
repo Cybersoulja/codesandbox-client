@@ -17,8 +17,9 @@ import {
   sandboxUrl,
   dashboard as dashboardUrls,
 } from '@codesandbox/common/lib/utils/url-generator';
-import { useWorkspaceSubscription } from 'app/hooks/useWorkspaceSubscription';
-import { useWorkspaceLimits } from 'app/hooks/useWorkspaceLimits';
+
+import { useBetaSandboxEditor } from 'app/hooks/useBetaSandboxEditor';
+
 import { DragPreview } from './DragPreview';
 import { ContextMenu } from './ContextMenu';
 import {
@@ -27,7 +28,6 @@ import {
   DashboardFolder,
   DashboardGridItem,
   DashboardSyncedRepo,
-  DashboardCommunitySandbox,
   PageTypes,
   DashboardBranch,
   DashboardRepository,
@@ -87,8 +87,9 @@ const Context = React.createContext<SelectionContext>({
 
 interface SelectionProviderProps {
   items: Array<DashboardGridItem>;
-  createNewFolder?: (() => void) | null;
-  createNewSandbox?: (() => void) | null;
+  createNewFolder?: () => void;
+  createNewSandbox?: () => void;
+  createNewDevbox?: () => void;
   activeTeamId: string | null;
   page: PageTypes;
   interactive?: boolean;
@@ -96,27 +97,27 @@ interface SelectionProviderProps {
 
 export const SelectionProvider: React.FC<SelectionProviderProps> = ({
   items = [],
-  createNewFolder = null,
-  createNewSandbox = null,
+  createNewFolder,
+  createNewSandbox,
+  createNewDevbox,
   activeTeamId,
   page,
   children,
   interactive = true,
 }) => {
+  const [hasBetaEditorExperiment] = useBetaSandboxEditor();
   const possibleItems = (items || []).filter(
     item =>
       item.type === 'sandbox' ||
       item.type === 'template' ||
       item.type === 'folder' ||
       item.type === 'synced-sandbox-repo' ||
-      item.type === 'community-sandbox' ||
       item.type === 'branch'
   ) as Array<
     | DashboardSandbox
     | DashboardTemplate
     | DashboardFolder
     | DashboardSyncedRepo
-    | DashboardCommunitySandbox
     | DashboardBranch
     | DashboardRepository
   >;
@@ -136,10 +137,7 @@ export const SelectionProvider: React.FC<SelectionProviderProps> = ({
     item => item.type === 'folder'
   ) as DashboardFolder[];
   const sandboxes = (items || []).filter(
-    item =>
-      item.type === 'sandbox' ||
-      item.type === 'template' ||
-      item.type === 'community-sandbox'
+    item => item.type === 'sandbox' || item.type === 'template'
   ) as Array<DashboardSandbox | DashboardTemplate>;
   const branches = (items || []).filter(
     item => item.type === 'branch'
@@ -152,8 +150,6 @@ export const SelectionProvider: React.FC<SelectionProviderProps> = ({
   const actions = useActions();
   const { dashboard, activeTeam } = useAppState();
   const { analytics } = useEffects();
-  const { isFree } = useWorkspaceSubscription();
-  const { hasMaxPublicSandboxes } = useWorkspaceLimits();
 
   const onClick = (event: React.MouseEvent<HTMLDivElement>, itemId: string) => {
     if (event.ctrlKey || event.metaKey) {
@@ -329,6 +325,7 @@ export const SelectionProvider: React.FC<SelectionProviderProps> = ({
       const selectedId = selectedIds[0];
 
       let url: string;
+      let linksToV2 = false;
       if (selectedId.startsWith('/')) {
         // means its a folder
         url = dashboardUrls.sandboxes(selectedId, activeTeamId);
@@ -336,11 +333,16 @@ export const SelectionProvider: React.FC<SelectionProviderProps> = ({
         const selectedItem = sandboxes.find(
           item => item.sandbox.id === selectedId
         );
-        url = sandboxUrl(selectedItem.sandbox);
+        url = sandboxUrl(selectedItem.sandbox, hasBetaEditorExperiment);
+        linksToV2 =
+          selectedItem.sandbox.isV2 ||
+          (!selectedItem.sandbox.isSse && hasBetaEditorExperiment);
       }
 
       if (event.ctrlKey || event.metaKey) {
         window.open(url, '_blank');
+      } else if (linksToV2) {
+        window.location.href = url;
       } else {
         history.push(url, { focus: 'FIRST_ITEM' });
       }
@@ -457,10 +459,6 @@ export const SelectionProvider: React.FC<SelectionProviderProps> = ({
           collectionPath: activeTeam ? null : '/',
         });
       } else if (dropPage === 'sandboxes') {
-        if (isFree && hasMaxPublicSandboxes) {
-          return;
-        }
-
         actions.dashboard.addSandboxesToFolder({
           sandboxIds,
           collectionPath: dropResult.path,
@@ -640,7 +638,7 @@ export const SelectionProvider: React.FC<SelectionProviderProps> = ({
         id="selection-container"
         onContextMenu={onContainerContextMenu}
         css={css({
-          paddingTop: page === 'recent' ? 0 : 8, // In the recent page, this component is nested so the padding top isn't needed.
+          paddingTop: page === 'recent' ? 0 : 3, // In the recent page, this component is nested so the padding top isn't needed.
           width: '100%',
           height: '100%',
         })}
@@ -700,6 +698,7 @@ export const SelectionProvider: React.FC<SelectionProviderProps> = ({
         page={page}
         createNewFolder={createNewFolder}
         createNewSandbox={createNewSandbox}
+        createNewDevbox={createNewDevbox}
       />
     </Context.Provider>
   );

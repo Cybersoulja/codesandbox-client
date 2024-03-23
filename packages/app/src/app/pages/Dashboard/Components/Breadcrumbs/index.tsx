@@ -2,6 +2,7 @@ import React from 'react';
 import { Text, Link } from '@codesandbox/components';
 import { Link as LinkBase } from 'react-router-dom';
 import { dashboard } from '@codesandbox/common/lib/utils/url-generator';
+import { ROOT_COLLECTION_NAME } from '../../Sidebar';
 
 export interface BreadcrumbProps {
   path: string;
@@ -22,25 +23,26 @@ export const Breadcrumbs: React.FC<BreadcrumbProps> = ({
       'repository-branches': dashboard.repositories(activeTeam),
       'synced-sandboxes': dashboard.syncedSandboxes(activeTeam),
     }[nestedPageType];
-  } else if (albumId) link = dashboard.discover(activeTeam);
+  }
 
-  let prefix = 'All sandboxes';
+  let prefix = ROOT_COLLECTION_NAME;
   if (nestedPageType) {
     prefix = {
-      'synced-sandboxes': 'Synced sandboxes',
+      'synced-sandboxes': 'Imported templates',
       'repository-branches': 'All repositories',
     }[nestedPageType];
-  } else if (albumId) prefix = 'Discover';
+  }
 
   return (
     <Text block size={6}>
-      <Link
-        to={link}
-        as={LinkBase}
-        variant={path && path.split('/').length ? 'muted' : 'body'}
-      >
-        {prefix} {path && ' / '}
-      </Link>
+      {path ? (
+        <Link to={link} as={LinkBase}>
+          {prefix} {path && ' / '}
+        </Link>
+      ) : (
+        <Text>{prefix}</Text>
+      )}
+
       {path &&
         nestedPageType !== 'repository-branches' &&
         path.split('/').map((currentPath, i, arr) => {
@@ -64,7 +66,6 @@ export const Breadcrumbs: React.FC<BreadcrumbProps> = ({
                   ? link
                   : dashboard.sandboxes('/' + partPath, activeTeam)
               }
-              variant={i < path.split('/').length - 1 ? 'muted' : 'body'}
             >
               {currentPath} {i < path.split('/').length - 1 && '/ '}
             </Link>

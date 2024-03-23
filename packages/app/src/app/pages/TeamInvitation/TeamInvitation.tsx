@@ -1,6 +1,6 @@
 import * as React from 'react';
 import css from '@styled-system/css';
-import { Link, Redirect } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   ThemeProvider,
   Text,
@@ -109,7 +109,7 @@ const TeamSignIn = ({ inviteToken }: { inviteToken: string }) => {
         <title>
           {data
             ? `Join ${data.teamByToken.name} on CodeSandbox`
-            : 'Join team on CodeSandbox'}
+            : 'Join workspace on CodeSandbox'}
         </title>
       </Helmet>
 
@@ -165,10 +165,12 @@ const JoinTeam = ({ inviteToken }: { inviteToken: string }) => {
   }
 
   if (loading || !team?.id) {
-    return <Text size={6}>Joining Team...</Text>;
+    return <Text size={6}>Joining workspace...</Text>;
   }
 
-  return <Redirect to={dashboard.recent(team.id)} />;
+  // Ensure all endpoints for new team are fetched
+  window.location.href = dashboard.recent(team.id, { new_join: 'true' });
+  return null;
 };
 
 export const TeamInvitation: React.FC<{

@@ -17,7 +17,7 @@ import VERSION from '@codesandbox/common/lib/version';
 import { camelizeKeys } from 'humps';
 import { SerializedTextOperation, TextOperation } from 'ot';
 import { Channel, Presence, Socket } from 'phoenix';
-import uuid from 'uuid';
+import * as uuid from 'uuid';
 
 import { AxiosError } from 'axios';
 import { OPTIMISTIC_ID_PREFIX } from '../utils';
@@ -173,8 +173,8 @@ class Live {
   private connectionPromise: Promise<Socket>;
   private async connect(): Promise<Socket> {
     if (!this.socket) {
-      const protocol =
-        process.env.LOCAL_SERVER && !process.env.CSB ? 'ws' : 'wss';
+      const protocol = window.location.protocol === 'http:' ? 'ws' : 'wss';
+
       let jwt = await this.provideJwtCached();
       const params = () => ({
         guardian_token: jwt,
@@ -200,7 +200,6 @@ class Live {
 
       this.socket = new Socket(`${protocol}://${location.host}/socket`, {
         params,
-        // @ts-expect-error Wrong typings
         reconnectAfterMs,
       });
 

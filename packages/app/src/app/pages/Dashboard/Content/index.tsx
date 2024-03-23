@@ -15,15 +15,9 @@ import { Deleted } from './routes/Deleted';
 import { Drafts } from './routes/Drafts';
 import { Recent } from './routes/Recent';
 import { Shared } from './routes/Shared';
-import { Liked } from './routes/Liked';
 import { Sandboxes } from './routes/Sandboxes';
 import { SyncedSandboxes } from './routes/SyncedSandboxes';
 import { Search } from './routes/Search';
-import { Settings } from './routes/Settings';
-import { Discover } from './routes/Discover';
-import { Album } from './routes/Discover/Album';
-import { Curate } from './routes/Discover/Curate';
-import { CommunitySearch } from './routes/Discover/CommunitySearch';
 import { MyContributions } from './routes/MyContributions';
 import { RepositoriesPage } from './routes/Repositories';
 import { RepositoryBranchesPage } from './routes/RepositoryBranches';
@@ -45,7 +39,6 @@ export const Content = withRouter(({ history }) => {
 
   useEffect(() => {
     const removeListener = history.listen(() => {
-      dashboard.blacklistedTemplatesCleared();
       dashboard.orderByReset();
     });
 
@@ -88,13 +81,7 @@ export const Content = withRouter(({ history }) => {
         />
         <Route path="/dashboard/deleted" component={Deleted} />
         <Route path="/dashboard/shared" component={Shared} />
-        <Route path="/dashboard/liked" component={Liked} />
         <Route path="/dashboard/search" component={Search} />
-        <Route path="/dashboard/discover/search" component={CommunitySearch} />
-        <Route path="/dashboard/discover/curate" component={Curate} />
-        <Route path="/dashboard/discover/:id" component={Album} />
-        <Route path="/dashboard/discover" component={Discover} />
-        <Route path="/dashboard/settings" component={Settings} />
         {/* old dashboard - redirects: */}
         <Redirect from="/dashboard/archive" to="/dashboard/deleted" />
         <Redirect from="/dashboard/home" to="/dashboard/recent" />

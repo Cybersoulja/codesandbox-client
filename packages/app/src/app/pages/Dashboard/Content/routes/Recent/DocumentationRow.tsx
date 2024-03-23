@@ -1,6 +1,6 @@
 import track from '@codesandbox/common/lib/utils/analytics';
 import { ArticleCard, VideoCard } from '@codesandbox/components';
-import { useWorkspaceAuthorization } from 'app/hooks/useWorkspaceAuthorization';
+import { blogUrl } from '@codesandbox/common/lib/utils/url-generator';
 import { Carousel } from 'app/pages/Dashboard/Components/Carousel/Carousel';
 import { EmptyPage } from 'app/pages/Dashboard/Components/EmptyPage';
 import { appendOnboardingTracking } from 'app/pages/Dashboard/Content/utils';
@@ -9,10 +9,7 @@ import React from 'react';
 type ArticleProps = React.ComponentProps<typeof ArticleCard>;
 type VideoProps = React.ComponentProps<typeof VideoCard>;
 
-type DocsItem = { label: string; workspaceType?: 'personal' | 'team' } & (
-  | VideoProps
-  | ArticleProps
-);
+type DocsItem = { label: string } & (VideoProps | ArticleProps);
 
 const DOCS: DocsItem[] = [
   {
@@ -31,29 +28,11 @@ const DOCS: DocsItem[] = [
     thumbnail: '/static/img/thumbnails/blog_github-app.png',
   },
   {
-    label: 'video_contribution-branches',
-    title: 'Easy open source with Contribution branches',
-    duration: '5:33',
-    durationLabel: '5 minutes, 33 seconds',
-    url: 'https://www.youtube.com/watch?v=HCs49B6VVl8',
-    thumbnail: '/static/img/thumbnails/video_contribution-branches.png',
-    workspaceType: 'team',
-  },
-  {
-    label: 'video_command-palette',
-    title: 'Using the Command Palette',
-    duration: '0:48',
-    durationLabel: '48 seconds',
-    url:
-      'https://www.youtube.com/watch?v=OUBYFp0Yz2A&list=PLdX6VQdTP7GbG1Poi8JN3AJsHAsSM2IlW&index=7',
-    thumbnail: '/static/img/thumbnails/video_command-palette.png',
-  },
-  {
     label: 'video_auto-deps-install',
     title: 'Automatic Dependency Management',
     duration: '1:18',
     durationLabel: '1 minute, 18 seconds',
-    url: 'https://www.youtube.com/watch?v=ZJ1sNiTZw5M',
+    url: 'https://www.youtube.com/watch?v=vS_FUWyBMZI',
     thumbnail: '/static/img/thumbnails/video_auto-deps.png',
   },
   {
@@ -65,14 +44,12 @@ const DOCS: DocsItem[] = [
   {
     label: 'cta_blog',
     title: 'Latest news and releases',
-    url: 'https://codesandbox.io/blog',
+    url: blogUrl(),
     thumbnail: '/static/img/thumbnails/blog.png',
   },
 ];
 
 export const DocumentationRow: React.FC = () => {
-  const { isPersonalSpace, isTeamSpace } = useWorkspaceAuthorization();
-
   const handleTrack = (label: string) => {
     track('Empty State Card - Content card', {
       codesandbox: 'V1',
@@ -81,14 +58,7 @@ export const DocumentationRow: React.FC = () => {
     });
   };
 
-  const items = DOCS.map(({ label, url, workspaceType, ...item }) => {
-    if (
-      (workspaceType === 'personal' && !isPersonalSpace) ||
-      (workspaceType === 'team' && !isTeamSpace)
-    ) {
-      return null;
-    }
-
+  const items = DOCS.map(({ label, url, ...item }) => {
     const urlWithTracking = appendOnboardingTracking(url);
 
     return {

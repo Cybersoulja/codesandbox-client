@@ -5,7 +5,7 @@ export interface SandboxItemComponentProps {
   sandbox: DashboardSandbox['sandbox'] | DashboardTemplate['sandbox'];
   sandboxTitle: string;
   sandboxLocation?: string;
-  lastUpdated: string;
+  timeAgo: string;
   viewCount: number | string;
   TemplateIcon: React.FC<{
     width: string;
@@ -14,6 +14,7 @@ export interface SandboxItemComponentProps {
   }>;
   PrivacyIcon: React.FC;
   screenshotUrl: string | null;
+  restricted: boolean;
 
   interaction: 'button' | 'link';
   isScrolling: boolean;
@@ -29,8 +30,9 @@ export interface SandboxItemComponentProps {
   onInputKeyDown: (evt: React.KeyboardEvent<HTMLInputElement>) => void;
   onSubmit: (evt: React.FormEvent<HTMLFormElement>) => void;
   onInputBlur: (evt: React.FocusEvent<HTMLInputElement>) => void;
-  restricted?: boolean;
 
   thumbnailRef: React.Ref<HTMLDivElement>;
   isDragging: boolean;
+
+  'data-selection-id'?: string;
 }

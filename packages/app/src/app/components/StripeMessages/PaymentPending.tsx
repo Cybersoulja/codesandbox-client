@@ -5,15 +5,16 @@ import { useCreateCustomerPortal } from 'app/hooks/useCreateCustomerPortal';
 import { useAppState } from 'app/overmind';
 import { useLocation } from 'react-router-dom';
 import { useWorkspaceAuthorization } from 'app/hooks/useWorkspaceAuthorization';
-import { useWorkspaceSubscription } from 'app/hooks/useWorkspaceSubscription';
 import { useDismissible } from 'app/hooks';
 import track from '@codesandbox/common/lib/utils/analytics';
+import { SubscriptionStatus } from 'app/graphql/types';
 
-export const PaymentPending: React.FC = () => {
+export const PaymentPending: React.FC<{ status: SubscriptionStatus }> = ({
+  status,
+}) => {
   const { activeTeam } = useAppState();
   const { pathname } = useLocation();
-  const { isTeamAdmin } = useWorkspaceAuthorization();
-  const { hasExpiredTeamTrial } = useWorkspaceSubscription();
+  const { isBillingManager } = useWorkspaceAuthorization();
   const [isDismissed, dismiss] = useDismissible(
     `DASHBOARD_REPOSITORIES_PERMISSIONS_BANNER_${activeTeam}`
   );
@@ -23,45 +24,34 @@ export const PaymentPending: React.FC = () => {
   ] = useCreateCustomerPortal({ team_id: activeTeam, return_path: pathname });
 
   const handleDismiss = () => {
-    const event = hasExpiredTeamTrial
-      ? 'expired trial dismiss'
-      : 'unpaid - dismiss';
-
-    track(`Stripe banner - ${event}`, {
-      codesandbox: 'V1',
-      event_source: 'UI',
+    track(`Payment Pending - Dismiss`, {
+      status,
+      isBillingManager,
     });
 
     dismiss();
   };
 
   const handleAction = () => {
-    const event = hasExpiredTeamTrial
-      ? 'upgrade after expired trial'
-      : 'unpaid - update payment details';
-
-    track(`Stripe banner - ${event}`, {
-      codesandbox: 'V1',
-      event_source: 'UI',
+    track(`Payment Pending - Open portal`, {
+      status,
+      isBillingManager,
     });
 
     createCustomerPortal();
   };
 
   const buildCopy = () => {
-    if (hasExpiredTeamTrial) {
-      return `Your trial has expired. ${
-        isTeamAdmin
-          ? 'Upgrade for the full CodeSandbox experience'
-          : 'Contact team admin to upgrade for the full Codesandbox Experience'
-      }.`;
-    }
+    const leading =
+      status === SubscriptionStatus.Unpaid
+        ? 'There are some issues with your payment.'
+        : 'Your payment was not yet approved.';
 
-    return `There are some issues with your payment. ${
-      isTeamAdmin
-        ? 'Please contact your team admin to update the payment details'
-        : 'Please update your payment details'
-    }`;
+    const secondary = isBillingManager
+      ? 'Please check your payment details if the problem persists.'
+      : 'Please contact your team admin to check the payment details.';
+
+    return `${leading} ${secondary}`;
   };
 
   React.useEffect(() => {
@@ -69,11 +59,9 @@ export const PaymentPending: React.FC = () => {
       return;
     }
 
-    const event = hasExpiredTeamTrial ? 'expired trial seen' : 'unpaid - seen';
-
-    track(`Stripe banner - ${event}`, {
-      codesandbox: 'V1',
-      event_source: 'UI',
+    track(`Payment Pending - Banner Shown`, {
+      status,
+      isBillingManager,
     });
   }, []);
 
@@ -82,14 +70,18 @@ export const PaymentPending: React.FC = () => {
   }
 
   return (
-    <MessageStripe variant="warning" onDismiss={handleDismiss}>
+    <MessageStripe
+      variant="warning"
+      corners="straight"
+      onDismiss={handleDismiss}
+    >
       {buildCopy()}
-      {isTeamAdmin ? (
+      {isBillingManager ? (
         <MessageStripe.Action
           loading={loadingCustomerPortal}
           onClick={handleAction}
         >
-          {hasExpiredTeamTrial ? 'Upgrade now' : 'Update payment'}
+          Update payment
         </MessageStripe.Action>
       ) : null}
     </MessageStripe>

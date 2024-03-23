@@ -9,12 +9,7 @@ import { SandboxName } from './SandboxName';
 import { WorkspaceName } from './WorkspaceName';
 
 export const Header = () => {
-  const {
-    editor,
-    isAuthenticating,
-    activeTeamInfo,
-    personalWorkspaceId,
-  } = useAppState();
+  const { editor, isAuthenticating, activeTeamInfo } = useAppState();
 
   return (
     <Stack
@@ -34,16 +29,7 @@ export const Header = () => {
     >
       <Stack align="center">
         <AppMenu />
-        {activeTeamInfo && personalWorkspaceId && (
-          <WorkspaceName
-            name={
-              activeTeamInfo.id === personalWorkspaceId
-                ? 'Personal'
-                : activeTeamInfo.name
-            }
-            plan={activeTeamInfo.subscription?.type}
-          />
-        )}
+        {activeTeamInfo && <WorkspaceName name={activeTeamInfo.name} />}
       </Stack>
 
       {editor.currentSandbox && !isAuthenticating ? <SandboxName /> : null}

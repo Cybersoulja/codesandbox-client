@@ -220,15 +220,14 @@ export class VSCodeEffect {
     // Only set the read only state when the editor is initialized.
     this.initialized.then(() => {
       // ReadOnly mode is derivative, it's based on a couple conditions. The most important
-      // one is the `freePlanEditingRestricted` flag. The second most important one is live.
+      // one is the `restricted` flag. The second most important one is live.
       // If you're in a classroom live session as spectator, you should not be allowed to edit.
 
       options.reaction(
         state => {
-          const freePlanEditingRestricted =
-            state.editor.currentSandbox?.freePlanEditingRestricted;
+          const restricted = state.editor.currentSandbox?.restricted;
 
-          if (freePlanEditingRestricted) {
+          if (restricted) {
             // Returns canEdit, false always
             return false;
           }
@@ -510,7 +509,10 @@ export class VSCodeEffect {
     setFs(this.sandboxFsSync.create(sandbox));
 
     if (isFirstLoad) {
-      this.sandboxFsSync.sync(() => {});
+      this.sandboxFsSync.sync(() => {
+        // Once we have synced the fs, reload the TS project, as some new dependencies might have been added
+        this.runCommand('typescript.reloadProjects');
+      });
     } else {
       this.editorApi.extensionService.stopExtensionHost();
       this.sandboxFsSync.sync(() => {

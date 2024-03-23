@@ -7,13 +7,13 @@ import { VariableGrid } from 'app/pages/Dashboard/Components/VariableGrid';
 import { DashboardGridItem, PageTypes } from 'app/pages/Dashboard/types';
 import { SelectionProvider } from 'app/pages/Dashboard/Components/Selection';
 import { Element } from '@codesandbox/components';
-import { useWorkspaceSubscription } from 'app/hooks/useWorkspaceSubscription';
-import { PrivateRepoFreeTeam } from 'app/pages/Dashboard/Components/Repository/stripes';
 import {
   getProjectUniqueKey,
   sortByLastAccessed,
 } from 'app/overmind/namespaces/dashboard/utils';
 import { BranchFragment } from 'app/graphql/types';
+import { InstallGHAppStripe } from 'app/pages/Dashboard/Components/shared/InstallGHAppStripe';
+import { useWorkspaceLimits } from 'app/hooks/useWorkspaceLimits';
 
 type MappedBranches = {
   defaultBranch: BranchFragment | null;
@@ -22,6 +22,7 @@ type MappedBranches = {
 };
 
 export const RepositoryBranchesPage = () => {
+  const { isFrozen } = useWorkspaceLimits();
   const params = useParams<{ path: string }>();
   const path = params.path || '';
   const [, owner, name] = path.split('/');
@@ -45,11 +46,7 @@ export const RepositoryBranchesPage = () => {
         name,
       });
     }
-  }, [activeTeam]);
-
-  const { isFree } = useWorkspaceSubscription();
-  const isPrivate = repositoryProject?.repository.private;
-  const isReadOnlyRepo = isFree && isPrivate;
+  }, [activeTeam, owner, name]);
 
   const pageType: PageTypes = 'repository-branches';
 
@@ -98,7 +95,7 @@ export const RepositoryBranchesPage = () => {
         type: 'new-branch',
         workspaceId: repositoryProject?.team?.id,
         repo: { owner, name },
-        disabled: isFree && repositoryProject.repository.private,
+        disabled: isFrozen,
         onClick: () => {
           actions.dashboard.createDraftBranch({
             owner,
@@ -128,19 +125,27 @@ export const RepositoryBranchesPage = () => {
         activeTeam={activeTeam}
         path={ownerNamePath}
         showViewOptions
-        showBetaBadge
         nestedPageType={pageType}
         selectedRepo={{
           owner: repositoryProject?.repository.owner,
           name: repositoryProject?.repository.name,
           assignedTeamId: repositoryProject?.team?.id,
         }}
-        readOnly={isReadOnlyRepo}
+        readOnly={isFrozen}
       />
 
-      {isReadOnlyRepo && (
-        <Element paddingX={4} paddingY={2}>
-          {isPrivate && <PrivateRepoFreeTeam />}
+      {repositoryProject?.appInstalled === false && (
+        <Element paddingX={4} paddingBottom={4}>
+          <InstallGHAppStripe
+            onCloseWindow={() => {
+              // Refetch repo data to get rid of the banner until we implement the GH app subscription
+              actions.dashboard.getRepositoryWithBranches({
+                activeTeam,
+                owner,
+                name,
+              });
+            }}
+          />
         </Element>
       )}
 

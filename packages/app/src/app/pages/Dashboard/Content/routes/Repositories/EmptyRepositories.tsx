@@ -1,16 +1,21 @@
-import { ArticleCard, CreateCard } from '@codesandbox/components';
-import track from '@codesandbox/common/lib/utils/analytics';
 import React from 'react';
+
+import { ArticleCard } from '@codesandbox/components';
+import track from '@codesandbox/common/lib/utils/analytics';
+import { docsUrl } from '@codesandbox/common/lib/utils/url-generator';
+
 import { useActions } from 'app/overmind';
 import { appendOnboardingTracking } from 'app/pages/Dashboard/Content/utils';
-import { RestrictedImportDisclaimer } from 'app/pages/Dashboard/Components/shared/RestrictedImportDisclaimer';
-import { EmptyPage } from '../../../Components/EmptyPage';
+import { EmptyPage } from 'app/pages/Dashboard/Components/EmptyPage';
+import { ActionCard } from 'app/pages/Dashboard/Components/shared/ActionCard';
+import { useWorkspaceLimits } from 'app/hooks/useWorkspaceLimits';
 
 const DESCRIPTION =
   'Save hours every week by shortening the review cycle and empowering everyone to contribute.<br />Every branch in Repositories is connected to git and has its own sandbox running in a fast microVM.';
 
 export const EmptyRepositories: React.FC = () => {
   const actions = useActions();
+  const { isFrozen } = useWorkspaceLimits();
 
   return (
     <EmptyPage.StyledWrapper
@@ -27,25 +32,27 @@ export const EmptyRepositories: React.FC = () => {
           marginTop: '16px',
         }}
       >
-        <CreateCard
+        <ActionCard
           icon="github"
-          title="Import from GitHub"
+          disabled={isFrozen}
           onClick={() => {
-            track('Empty State Card - Open create modal', {
+            track('Empty State Card - Import repository', {
               codesandbox: 'V1',
               event_source: 'UI',
               card_type: 'get-started-action',
               tab: 'github',
             });
 
-            actions.openCreateSandboxModal({ initialTab: 'import' });
+            actions.modalOpened({ modal: 'importRepository' });
           }}
-        />
+        >
+          Import from GitHub
+        </ActionCard>
         <ArticleCard
           title="More about repositories"
           thumbnail="/static/img/thumbnails/page_repositories.png"
           url={appendOnboardingTracking(
-            'https://codesandbox.io/docs/learn/repositories/overview'
+            docsUrl('/learn/repositories/overview')
           )}
           onClick={() =>
             track('Empty State Card - Content Card', {
@@ -56,7 +63,6 @@ export const EmptyRepositories: React.FC = () => {
           }
         />
       </EmptyPage.StyledGrid>
-      <RestrictedImportDisclaimer />
     </EmptyPage.StyledWrapper>
   );
 };

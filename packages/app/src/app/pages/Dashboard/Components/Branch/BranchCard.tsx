@@ -4,9 +4,9 @@ import {
   IconButton,
   Stack,
   Text,
-  Badge,
   InteractiveOverlay,
 } from '@codesandbox/components';
+import { shortDistance } from '@codesandbox/common/lib/utils/short-distance';
 import { BranchProps } from './types';
 import { StyledCard } from '../shared/StyledCard';
 
@@ -16,8 +16,8 @@ export const BranchCard: React.FC<BranchProps> = ({
   isBeingRemoved,
   selected,
   onContextMenu,
-  restricted,
   showRepo,
+  lastAccessed,
   ...props
 }) => {
   const { name: branchName, project, contribution } = branch;
@@ -40,7 +40,7 @@ export const BranchCard: React.FC<BranchProps> = ({
                 </Text>
               )}
 
-              <Stack gap={2}>
+              <Stack gap={3}>
                 {contribution ? (
                   <Icon color="#EDFFA5" name="contribution" size={16} />
                 ) : (
@@ -54,12 +54,7 @@ export const BranchCard: React.FC<BranchProps> = ({
                   radius={4}
                   {...props}
                 >
-                  <Text
-                    color={restricted ? '#999999' : '#E5E5E5'}
-                    weight="medium"
-                    size={13}
-                    truncate
-                  >
+                  <Text color="#E5E5E5" weight="medium" size={13} truncate>
                     {branchName}
                   </Text>
                 </InteractiveOverlay.Anchor>
@@ -81,9 +76,11 @@ export const BranchCard: React.FC<BranchProps> = ({
               />
             </Stack>
           </Stack>
-          <Stack justify="flex-end">
-            {restricted ? <Badge variant="trial">Restricted</Badge> : null}
-          </Stack>
+          {lastAccessed && (
+            <Text size={12} variant="muted">
+              {shortDistance(lastAccessed)}
+            </Text>
+          )}
         </Stack>
       </StyledCard>
     </InteractiveOverlay>

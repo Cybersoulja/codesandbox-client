@@ -18,41 +18,36 @@ export const appendOnboardingTracking = (url: string): string => {
 
 const DOCS: DocsItem[] = [
   {
-    label: 'blog_dashboard-overview',
-    title: 'Introducing the new dashboard',
-    url: 'https://codesandbox.io/post/a-unified-codesandbox-experience',
-    thumbnail: '/static/img/thumbnails/blog_dashboard-intro.png',
-  },
-  {
     label: 'docs_getting-started',
-    title: 'Getting started with the new CodeSandbox',
-    duration: '5:58',
-    durationLabel: '5 minutes, 58 seconds',
-    url: 'https://www.youtube.com/watch?v=j8CwqAqdVjc',
+    title: 'Getting started with CodeSandbox',
+    duration: '5:00',
+    durationLabel: '5 minutes, 00 seconds',
+    url: 'https://www.youtube.com/watch?v=aSDSpRxkTnY',
     thumbnail: '/static/img/thumbnails/docs_getting-started.png',
   },
   {
-    label: 'video_cloud-sandboxes',
-    title: 'Get started with Cloud Sandboxes',
-    duration: '0:48',
-    durationLabel: '48 seconds',
-    url: 'https://www.youtube.com/watch?v=4f1pKKP1NQ0',
-    thumbnail: '/static/img/thumbnails/video_cloud-sandboxes.png',
-  },
-  {
     label: 'video_vs-code',
-    title: 'Working locally with the VSCode Extension',
+    title: 'Working locally with the VS Code Extension',
     duration: '3:02',
     durationLabel: '3 minutes, 2 seconds',
     url: 'https://www.youtube.com/watch?v=ZJ1sNiTZw5M',
     thumbnail: '/static/img/thumbnails/docs_vscode-extension.png',
   },
   {
-    label: 'blog-iOS',
-    title: 'Code with our native iOS App',
-    url:
-      'https://codesandbox.io/post/how-to-code-your-app-using-the-codesandbox-ipad-ide',
-    thumbnail: '/static/img/thumbnails/docs_ipad.png',
+    label: 'video_code-reviews',
+    title: 'Review PRs in CodeSandbox',
+    duration: '3:56',
+    durationLabel: '3 minutes, 56 seconds',
+    url: 'https://www.youtube.com/watch?v=dRkpuUMHCNQ',
+    thumbnail: '/static/img/thumbnails/video_code-reviews.png',
+  },
+  {
+    label: 'video_postgres',
+    title: 'Adding a Postgres Database in CodeSandbox',
+    duration: '9:02',
+    durationLabel: '9 minutes, 2 seconds',
+    url: 'https://www.youtube.com/watch?v=1ZHrwJHoKOw',
+    thumbnail: '/static/img/thumbnails/video_postgres-tutorial.jpg',
   },
 ];
 

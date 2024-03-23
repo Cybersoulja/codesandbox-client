@@ -1,91 +1,98 @@
-import { TeamMemberAuthorization } from 'app/graphql/types';
 import { useAppState } from 'app/overmind';
-import { useWorkspaceAuthorization } from './useWorkspaceAuthorization';
 import { useWorkspaceSubscription } from './useWorkspaceSubscription';
+import { useWorkspaceFeatureFlags } from './useWorkspaceFeatureFlags';
+
+const OUT_OF_CREDITS_TRESHOLD = 50; // 50 credits left from the free plan included credits
+const SPENDING_LIMIT_WARNING = 0.9; // 90% of the included + ondemand credits used
 
 export const useWorkspaceLimits = (): WorkspaceLimitsReturn => {
-  const { activeTeamInfo } = useAppState();
-  const { isTeamSpace } = useWorkspaceAuthorization();
-  const { isFree } = useWorkspaceSubscription();
+  const { activeTeamInfo, user } = useAppState();
+  const { isFree, isPro } = useWorkspaceSubscription();
+  const { ubbBeta, friendOfCsb } = useWorkspaceFeatureFlags();
 
-  if (!activeTeamInfo) {
+  if (!activeTeamInfo || !user) {
     return {
-      numberOfEditors: undefined,
-      hasMaxNumberOfEditors: undefined,
-      numberOfEditorsIsOverTheLimit: undefined,
-      hasMaxPublicRepositories: undefined,
-      hasMaxPrivateRepositories: undefined,
-      hasMaxPublicSandboxes: undefined,
+      isOutOfCredits: undefined,
+      isCloseToOutOfCredits: undefined,
+      isAtSpendingLimit: undefined,
+      isCloseToSpendingLimit: undefined,
+      showUsageLimitBanner: undefined,
+      isFrozen: undefined,
+      hasReachedSandboxLimit: undefined,
+      hasReachedDraftLimit: undefined,
+      highestAllowedVMTier: undefined,
     };
   }
 
-  const { userAuthorizations, limits, usage } = activeTeamInfo;
+  const applyUbbRestrictions = !friendOfCsb && ubbBeta;
 
-  const editorOrAdminAuthorizations = userAuthorizations?.filter(
-    ({ authorization }) =>
-      authorization === TeamMemberAuthorization.Admin ||
-      authorization === TeamMemberAuthorization.Write
-  );
-  const numberOfEditors = isTeamSpace
-    ? editorOrAdminAuthorizations?.length || 1
-    : 1; // Personal
+  const { limits, usage, frozen, userAuthorizations } = activeTeamInfo;
 
-  const hasMaxNumberOfEditors =
-    isFree === true && numberOfEditors === limits.maxEditors;
-
-  const numberOfEditorsIsOverTheLimit =
+  const isOutOfCredits = applyUbbRestrictions && isFree === true && frozen;
+  const isCloseToOutOfCredits =
+    applyUbbRestrictions &&
     isFree === true &&
-    limits.maxEditors !== null &&
-    numberOfEditors > limits.maxEditors;
+    !frozen &&
+    limits.includedCredits - usage.credits < OUT_OF_CREDITS_TRESHOLD;
+  const isAtSpendingLimit = applyUbbRestrictions && isPro === true && frozen;
 
-  const publicProjectsQuantity = usage.publicProjectsQuantity;
-  const maxPublicProjects = limits.maxPublicProjects;
+  const onDemandCreditsLimit = limits.onDemandCreditLimit ?? 0;
+  const isCloseToSpendingLimit =
+    applyUbbRestrictions &&
+    isPro === true &&
+    !frozen &&
+    usage.credits / (limits.includedCredits + onDemandCreditsLimit) >
+      SPENDING_LIMIT_WARNING;
 
-  const hasMaxPublicRepositories =
+  const hasReachedSandboxLimit =
+    applyUbbRestrictions && usage.sandboxes >= limits.includedSandboxes;
+
+  const userDrafts =
+    userAuthorizations.find(ua => ua.userId === user.id)?.drafts ?? 0;
+  const hasReachedDraftLimit =
+    applyUbbRestrictions &&
     isFree === true &&
-    maxPublicProjects !== null &&
-    publicProjectsQuantity >= maxPublicProjects;
+    userDrafts >= limits.includedDrafts;
 
-  const privateRepositoriesQuantity = usage.privateProjectsQuantity;
-  const maxPrivateRepositories = limits.maxPrivateProjects;
-
-  const hasMaxPrivateRepositories =
-    isFree === true &&
-    maxPrivateRepositories !== null &&
-    privateRepositoriesQuantity > maxPrivateRepositories;
-
-  const publicSandboxesQuantity = usage.publicSandboxesQuantity;
-  const maxPublicSandboxes = limits.maxPublicSandboxes;
-
-  const hasMaxPublicSandboxes =
-    isFree === true &&
-    maxPublicSandboxes !== null &&
-    publicSandboxesQuantity >= maxPublicSandboxes;
+  const highestAllowedVMTier = limits.includedVmTier;
 
   return {
-    numberOfEditors,
-    hasMaxNumberOfEditors,
-    numberOfEditorsIsOverTheLimit,
-    hasMaxPublicRepositories,
-    hasMaxPrivateRepositories,
-    hasMaxPublicSandboxes,
+    isOutOfCredits,
+    isCloseToOutOfCredits,
+    isAtSpendingLimit,
+    isCloseToSpendingLimit,
+    hasReachedSandboxLimit,
+    hasReachedDraftLimit,
+    showUsageLimitBanner:
+      isOutOfCredits ||
+      isCloseToOutOfCredits ||
+      isAtSpendingLimit ||
+      isCloseToSpendingLimit,
+    isFrozen: applyUbbRestrictions && frozen,
+    highestAllowedVMTier,
   };
 };
 
 export type WorkspaceLimitsReturn =
   | {
-      numberOfEditors: undefined;
-      hasMaxNumberOfEditors: undefined;
-      numberOfEditorsIsOverTheLimit: undefined;
-      hasMaxPublicRepositories: undefined;
-      hasMaxPrivateRepositories: undefined;
-      hasMaxPublicSandboxes: undefined;
+      isOutOfCredits: undefined;
+      isCloseToOutOfCredits: undefined;
+      isAtSpendingLimit: undefined;
+      isCloseToSpendingLimit: undefined;
+      showUsageLimitBanner: undefined;
+      isFrozen: undefined;
+      hasReachedSandboxLimit: undefined;
+      hasReachedDraftLimit: undefined;
+      highestAllowedVMTier: undefined;
     }
   | {
-      numberOfEditors: number;
-      hasMaxNumberOfEditors: boolean;
-      numberOfEditorsIsOverTheLimit: boolean;
-      hasMaxPublicRepositories: boolean;
-      hasMaxPrivateRepositories: boolean;
-      hasMaxPublicSandboxes: boolean;
+      isOutOfCredits: boolean;
+      isCloseToOutOfCredits: boolean;
+      isAtSpendingLimit: boolean;
+      isCloseToSpendingLimit: boolean;
+      showUsageLimitBanner: boolean;
+      isFrozen: boolean;
+      hasReachedSandboxLimit: boolean;
+      hasReachedDraftLimit: boolean;
+      highestAllowedVMTier: number;
     };

@@ -9,6 +9,7 @@ function getSentry(): Promise<typeof import('@sentry/browser')> {
   return import(/* webpackChunkName: 'sentry' */ '@sentry/browser');
 }
 
+let sentryInitialized = false;
 let latestVersionPromise: Promise<string>;
 const versionTimeout = 1 * 60 * 1000;
 function getLatestVersion() {
@@ -35,6 +36,8 @@ export async function initialize(dsn: string) {
       return Promise.resolve();
     }
 
+    sentryInitialized = true;
+
     return _Sentry.init({
       dsn,
       release: VERSION,
@@ -53,6 +56,7 @@ export async function initialize(dsn: string) {
         /Cannot reorder children for node/,
 
         "undefined is not an object (evaluating 'window.__pad.performLoop')", // Only happens on Safari, but spams our servers. Doesn't break anything
+        "Cannot assign to read only property 'exports' of object '#<Object>'", // eslint error in the v1 editor
       ],
       integrations: [
         new _Sentry.Integrations.TryCatch({
@@ -142,26 +146,26 @@ export async function initialize(dsn: string) {
 }
 
 export const logBreadcrumb = (breadcrumb: Breadcrumb) => {
-  if (_Sentry) {
+  if (_Sentry && sentryInitialized) {
     _Sentry.addBreadcrumb(breadcrumb);
   }
 };
 
 export const captureException = (err: Error) => {
-  if (_Sentry) {
+  if (_Sentry && sentryInitialized) {
     return _Sentry.captureException(err);
   }
   return null;
 };
 
 export const configureScope = cb => {
-  if (_Sentry) {
+  if (_Sentry && sentryInitialized) {
     _Sentry.configureScope(cb);
   }
 };
 
 export const setUserId = userId => {
-  if (_Sentry) {
+  if (_Sentry && sentryInitialized) {
     _Sentry.configureScope(scope => {
       scope.setUser({ id: userId });
     });
@@ -169,7 +173,7 @@ export const setUserId = userId => {
 };
 
 export const resetUserId = () => {
-  if (_Sentry) {
+  if (_Sentry && sentryInitialized) {
     _Sentry.configureScope(scope => {
       scope.setUser({ id: undefined });
     });

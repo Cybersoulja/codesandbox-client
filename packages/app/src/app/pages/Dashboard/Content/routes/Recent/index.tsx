@@ -7,7 +7,7 @@ import { Loading, Stack } from '@codesandbox/components';
 import { EmptyRecent } from './EmptyRecent';
 import { RecentContent } from './RecentContent';
 
-export const Recent = () => {
+export const Recent = props => {
   const {
     activeTeam,
     dashboard: { sandboxes },
@@ -45,9 +45,9 @@ export const Recent = () => {
                 : b.sandbox.lastAccessedAt;
 
             return new Date(dateA) < new Date(dateB) ? 1 : -1;
-            // Merge the two data sources and show only the first 12 most recent entries
+            // Merge the two data sources and show only the first 18 most recent entries
           })
-          .slice(0, 12);
+          .slice(0, 18);
 
   let pageState: 'loading' | 'ready' | 'empty';
   if (!items) {
@@ -68,6 +68,7 @@ export const Recent = () => {
           <Loading size={12} />
         </Stack>
       )}
+
       {pageState === 'empty' && <EmptyRecent />}
       {pageState === 'ready' && <RecentContent recentItems={items} />}
     </>

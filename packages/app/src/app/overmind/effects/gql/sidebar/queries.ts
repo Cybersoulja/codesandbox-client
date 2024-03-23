@@ -1,33 +1,15 @@
 import { gql, Query } from 'overmind-graphql';
 
 import {
-  PersonalSidebarDataQuery,
   TeamSidebarDataQuery,
   TeamSidebarDataQueryVariables,
 } from 'app/graphql/types';
 
 import {
+  sidebarProjectFragment,
   sidebarSyncedSandboxFragment,
   sidebarTemplateFragment,
 } from './fragments';
-
-export const getPersonalSidebarData: Query<
-  PersonalSidebarDataQuery,
-  undefined
-> = gql`
-  query PersonalSidebarData {
-    me {
-      sandboxes(hasOriginalGit: true) {
-        ...sidebarSyncedSandboxFragment
-      }
-      templates {
-        ...sidebarTemplateFragment
-      }
-    }
-  }
-  ${sidebarSyncedSandboxFragment}
-  ${sidebarTemplateFragment}
-`;
 
 export const getTeamSidebarData: Query<
   TeamSidebarDataQuery,
@@ -42,9 +24,13 @@ export const getTeamSidebarData: Query<
         templates {
           ...sidebarTemplateFragment
         }
+        projects(syncData: false) {
+          ...sidebarProjectFragment
+        }
       }
     }
   }
   ${sidebarSyncedSandboxFragment}
   ${sidebarTemplateFragment}
+  ${sidebarProjectFragment}
 `;

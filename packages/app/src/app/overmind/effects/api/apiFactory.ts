@@ -4,13 +4,15 @@ import { camelizeKeys, decamelizeKeys } from 'humps';
 
 const API_ROOT = '/api';
 
-/**
- * If the path starts with `/beta`, do not append `/v1` to the api root
- * url. Alternatively we have the useRoot param for when we just want to
- * use the root path.
- */
-const getBaseApi = (path: string, useRoot: boolean = false) => {
-  if (useRoot) {
+const getBaseApi = (path: string, options: Options = {}) => {
+  // Special case for /auth/workos requests which are not on /api/v1
+  if (path.startsWith('/auth/workos')) {
+    return '';
+  }
+
+  // Version is either a datetime string or null in case the param can be omitted
+  // However, null will still mean `/v1` is not appended
+  if (options.version !== undefined) {
     return API_ROOT;
   }
 
@@ -26,21 +28,12 @@ export type Params = {
 };
 
 type Options = {
-  shouldCamelize: boolean;
+  shouldCamelize?: boolean;
+  version?: string | null;
 };
 
 export type Api = {
-  get<T>(
-    path: string,
-    params?: Params,
-    options?: Options,
-    /**
-     * Our API has three different base paths: /beta, /v1 and a path
-     * without one of those. We can use the useRoot parameter to use the
-     * latter.
-     */
-    useRoot?: boolean
-  ): Promise<T>;
+  get<T>(path: string, params?: Params, options?: Options): Promise<T>;
   post<T>(path: string, body: any, options?: Options): Promise<T>;
   patch<T>(path: string, body: any, options?: Options): Promise<T>;
   put<T>(path: string, body: any, options?: Options): Promise<T>;
@@ -54,8 +47,12 @@ export type ApiConfig = {
 };
 
 export default (config: ApiConfig) => {
-  const createHeaders = (provideJwt: () => string | null) => ({
+  const createHeaders = (
+    provideJwt: () => string | null,
+    version?: string | null
+  ) => ({
     'x-codesandbox-client': 'legacy-web',
+    ...(version ? { 'X-CSB-API-Version': version } : {}),
     ...(provideJwt()
       ? {
           Authorization: `Bearer ${provideJwt()}`,
@@ -63,40 +60,40 @@ export default (config: ApiConfig) => {
       : {}),
   });
   const api: Api = {
-    get(path, params, options, useRoot) {
+    get(path, params, options) {
       return axios
-        .get(getBaseApi(path, useRoot) + path, {
+        .get(getBaseApi(path, options) + path, {
           params,
-          headers: createHeaders(config.provideJwtToken),
+          headers: createHeaders(config.provideJwtToken, options?.version),
         })
         .then(response => handleResponse(response, options));
     },
     post(path, body, options) {
       return axios
-        .post(getBaseApi(path) + path, decamelizeKeys(body), {
-          headers: createHeaders(config.provideJwtToken),
+        .post(getBaseApi(path, options) + path, decamelizeKeys(body), {
+          headers: createHeaders(config.provideJwtToken, options?.version),
         })
         .then(response => handleResponse(response, options));
     },
     patch(path, body, options) {
       return axios
-        .patch(getBaseApi(path) + path, decamelizeKeys(body), {
-          headers: createHeaders(config.provideJwtToken),
+        .patch(getBaseApi(path, options) + path, decamelizeKeys(body), {
+          headers: createHeaders(config.provideJwtToken, options?.version),
         })
         .then(response => handleResponse(response, options));
     },
     put(path, body, options) {
       return axios
-        .put(getBaseApi(path) + path, decamelizeKeys(body), {
-          headers: createHeaders(config.provideJwtToken),
+        .put(getBaseApi(path, options) + path, decamelizeKeys(body), {
+          headers: createHeaders(config.provideJwtToken, options?.version),
         })
         .then(response => handleResponse(response, options));
     },
     delete(path, params, options) {
       return axios
-        .delete(getBaseApi(path) + path, {
+        .delete(getBaseApi(path, options) + path, {
           params,
-          headers: createHeaders(config.provideJwtToken),
+          headers: createHeaders(config.provideJwtToken, options?.version),
         })
         .then(response => handleResponse(response, options));
     },
@@ -104,9 +101,10 @@ export default (config: ApiConfig) => {
       return axios
         .request(
           Object.assign(requestConfig, {
-            url: getBaseApi(requestConfig.url ?? '') + requestConfig.url,
+            url:
+              getBaseApi(requestConfig.url ?? '', options) + requestConfig.url,
             data: requestConfig.data ? camelizeKeys(requestConfig.data) : null,
-            headers: createHeaders(config.provideJwtToken),
+            headers: createHeaders(config.provideJwtToken, options?.version),
           })
         )
         .then(response => handleResponse(response, options));

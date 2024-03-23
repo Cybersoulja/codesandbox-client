@@ -44,7 +44,7 @@
     "build:embed": "lerna run build:embed --scope app --stream && gulp",
     "build:prod": "lerna run build --scope app --stream && lerna run copy-assets --scope app --stream",
     "commit": "concurrently \"yarn typecheck\" \"yarn lint\" && git commit -m",
-    "postinstall": "yarn lerna run install-dependencies --stream --concurrency 1 && opencollective postinstall && patch-package",
+    "postinstall": "yarn lerna run install-dependencies --stream --concurrency 1 && cd packages/app/src/app/overmind/effects/vscode/LinterWorker && yarn install",
     "contributors:add": "all-contributors add",
     "contributors:generate": "all-contributors generate",
     "lint": "lerna run lint --stream",
@@ -53,10 +53,13 @@
     "start:common": "lerna run start --scope @codesandbox/common --stream",
     "start:components": "lerna run start --scope @codesandbox/components --stream",
     "start:dev_api": "(tmux new-session -d -s csb \"NODE_OPTIONS=--max_old_space_size=8192 concurrently --raw 'cd packages/app && yarn start:dev_api' 'cd packages/common && yarn start' 'cd packages/components && yarn start'\" || tmux attach -t csb) && tmux attach -t csb",
-    "start:fast": "cross-env NODE_ENV=development concurrently --raw \"cd packages/app && yarn start\" \"cd packages/common && yarn start\" \"cd packages/components && yarn start\"",
+    "prestart:fast": "chmod +x ./env.sh && ./env.sh ./packages/app/static/js/env-config.js",
+    "start:fast": "cross-env ENDPOINT=https://codesandbox.io NODE_ENV=development concurrently --raw \"cd packages/app && yarn start\" \"cd packages/common && yarn start\" \"cd packages/components && yarn start\"",
     "start:csb-dev": "cross-env NODE_ENV=development stmux -w always -e ERROR -m beep,system -- [ \"cd packages/app && sleep 15 && yarn start:dev_api\" : [ \"cd packages/common && yarn start\" .. \"cd packages/components && yarn start\" ] ]",
     "start:profiling": "cross-env NODE_ENV=production PROFILING=true concurrently --raw \"cd packages/app && yarn start\" \"cd packages/common && yarn start\" \"cd packages/components && yarn start\"",
     "start:hot": "cross-env NODE_ENV=development APP_ONLY=true concurrently --raw \"cd packages/app && yarn start\" \"cd packages/common && yarn start\" \"cd packages/components && yarn start\"",
+    "prestart:fast:stream": "chmod +x ./env.sh && ./env.sh ./packages/app/static/js/env-config.js",
+    "prestart:fast:local": "chmod +x ./env.sh && ./env.sh ./packages/app/static/js/env-config.js",
     "start:fast:stream": "cross-env ENDPOINT=https://codesandbox.stream NODE_ENV=development concurrently --raw \"cd packages/app && yarn start\" \"cd packages/common && yarn start\" \"cd packages/components && yarn start\"",
     "start:fast:local": "cross-env ENDPOINT=http://localhost:4000 NODE_ENV=development concurrently --raw \"cd packages/app && yarn start\" \"cd packages/common && yarn start\" \"cd packages/components && yarn start\"",
     "start:storybook": "lerna run start:storybook --scope=@codesandbox/common --stream",
@@ -69,41 +72,37 @@
     "test:jest-lite": "lerna exec --scope app --stream -- yarn run test jest-lite --watch --coverage",
     "chromatic": "lerna run chromatic --scope=@codesandbox/components --stream",
     "typecheck": "lerna run typecheck",
-    "prettify": "prettier -w ."
+    "prettify": "prettier -w .",
+    "prepare": "husky install"
   },
   "dependencies": {
-    "@typescript-eslint/eslint-plugin": "^4.2.0",
-    "@typescript-eslint/parser": "^4.2.0",
-    "opencollective": "^1.0.3",
-    "patch-package": "^6.5.0",
     "postinstall-postinstall": "^2.1.0"
   },
   "devDependencies": {
-    "all-contributors-cli": "^6.9.2",
-    "babel-eslint": "10.0.2",
+    "@typescript-eslint/eslint-plugin": "^6.9.0",
+    "@typescript-eslint/parser": "^6.9.0",
+    "all-contributors-cli": "^6.26.1",
+    "babel-eslint": "10.1.0",
     "concurrently": "^4.1.0",
     "cross-env": "^6.0.0",
     "eslint": "5.16.0",
     "eslint-config-airbnb": "^18.0.1",
     "eslint-config-prettier": "^6.3.0",
     "eslint-import-resolver-webpack": "^0.8.1",
-    "eslint-loader": "^1.7.1",
     "eslint-plugin-import": "^2.18.2",
     "eslint-plugin-jsx-a11y": "^6.6.1",
     "eslint-plugin-react": "~7.21.2",
     "eslint-plugin-react-hooks": "^4.1.0",
     "eslint-plugin-react_editor": "npm:eslint-plugin-react@7.29.4",
-    "gulp": "^3.9.1",
-    "husky": "^4.3.0",
-    "lerna": "^5.6.2",
+    "gulp": "^4.0.2",
+    "husky": "^8.0.3",
+    "jest-environment-jsdom": "^29.7.0",
+    "lerna": "^6",
     "lint-staged": "10.5.4",
     "prettier": "2.1.1",
     "pretty-quick": "^3.0.0",
-    "typescript": "4.1.2",
+    "typescript": "^5.2.2",
     "username": "^5.1.0"
-  },
-  "resolutions": {
-    "eslint/esquery": "1.0.1"
   },
   "husky": {
     "hooks": {
@@ -118,10 +117,5 @@
   },
   "engines": {
     "node": "^16.0.0"
-  },
-  "collective": {
-    "type": "opencollective",
-    "url": "https://opencollective.com/codesandbox",
-    "logo": "https://opencollective.com/codesandbox/logo.txt"
   }
 }

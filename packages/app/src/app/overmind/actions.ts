@@ -6,8 +6,6 @@ import {
 } from '@codesandbox/common/lib/utils/notifications';
 import { protocolAndHost } from '@codesandbox/common/lib/utils/url-generator';
 
-import { NotificationStatus } from '@codesandbox/notifications';
-import { TeamStep } from 'app/pages/Dashboard/Components/NewTeamModal';
 import { withLoadApp } from './factories';
 import * as internalActions from './internalActions';
 import { TEAM_ID_LOCAL_STORAGE } from './utils/team';
@@ -77,7 +75,7 @@ export const onInitializeOvermind = async (
   effects.gql.initialize(gqlOptions, () => effects.live.socket);
 
   if (state.hasLogIn) {
-    await actions.internal.setActiveWorkspaceFromUrlOrStore();
+    await actions.internal.initializeActiveWorkspace();
   }
 
   effects.notifications.initialize({
@@ -155,7 +153,6 @@ export const onInitializeOvermind = async (
 
   effects.preview.initialize();
 
-  actions.internal.showPrivacyPolicyNotification();
   actions.internal.setViewModeForDashboard();
 
   effects.browser.onWindowMessage(event => {
@@ -167,6 +164,12 @@ export const onInitializeOvermind = async (
   effects.browserExtension.hasExtension().then(hasExtension => {
     actions.preview.setExtension(hasExtension);
   });
+
+  try {
+    state.features = await effects.api.getFeatures();
+  } catch {
+    // Just for safety so it doesn't crash the overmind initialize flow
+  }
 };
 
 export const appUnmounted = async ({ effects, actions }: Context) => {
@@ -242,7 +245,6 @@ export const connectionChanged = ({ state }: Context, connected: boolean) => {
 
 type ModalName =
   | 'githubPagesLogs'
-  | 'deleteWorkspace'
   | 'deleteDeployment'
   | 'deleteSandbox'
   | 'feedback'
@@ -254,14 +256,15 @@ type ModalName =
   | 'share'
   | 'signInForTemplates'
   | 'userSurvey'
-  | 'liveSessionConfirm'
   | 'liveSessionRestricted'
   | 'sandboxPicker'
   | 'minimumPrivacy'
   | 'addMemberToWorkspace'
   | 'legacyPayment'
-  | 'selectWorkspaceToUpgrade'
-  | 'selectWorkspaceToStartTrial';
+  | 'importRepository'
+  | 'createSandbox'
+  | 'createDevbox'
+  | 'genericCreate';
 
 export const modalOpened = (
   { state, effects }: Context,
@@ -269,19 +272,32 @@ export const modalOpened = (
     modal: ModalName;
     message?: string;
     itemId?: string;
+    repoToImport?: { owner: string; name: string };
+    sandboxIdToFork?: string;
   }
 ) => {
   effects.analytics.track('Open Modal', { modal: props.modal });
   state.currentModal = props.modal;
   if (props.modal === 'preferences' && props.itemId) {
     state.preferences.itemId = props.itemId;
+  }
+  if (props.modal === 'createDevbox' || props.modal === 'createSandbox') {
+    state.currentModalItemId = props.itemId;
+    state.sandboxIdToFork = props.sandboxIdToFork || null;
   } else {
     state.currentModalMessage = props.message || null;
+  }
+
+  if (props.modal === 'importRepository') {
+    state.repoToImport = props.repoToImport || null;
   }
 };
 
 export const modalClosed = ({ state }: Context) => {
   state.currentModal = null;
+  state.currentModalMessage = null;
+  state.repoToImport = null;
+  state.sandboxIdToFork = null;
 };
 
 export const signInClicked = (
@@ -290,14 +306,6 @@ export const signInClicked = (
 ) => {
   state.signInModalOpen = true;
   state.cancelOnLogin = props?.onCancel ?? null;
-};
-
-export const signInWithRedirectClicked = (
-  { state }: Context,
-  redirectTo: string
-) => {
-  state.signInModalOpen = true;
-  state.redirectOnLogin = redirectTo;
 };
 
 export const toggleSignInModal = ({ state }: Context) => {
@@ -422,14 +430,6 @@ export const signInGithubClicked = async (
   }
 };
 
-export const signInGoogleClicked = async ({ actions }: Context) => {
-  await actions.internal.signIn({ provider: 'google' });
-};
-
-export const signInAppleClicked = async ({ actions }: Context) => {
-  await actions.internal.signIn({ provider: 'apple' });
-};
-
 export const signOutClicked = async ({ state, effects, actions }: Context) => {
   effects.analytics.track('Sign Out', {});
   state.workspace.openedWorkspaceItem = 'files';
@@ -437,6 +437,9 @@ export const signOutClicked = async ({ state, effects, actions }: Context) => {
     actions.live.internal.disconnect();
   }
   await effects.api.signout();
+  effects.browser.storage.remove(TEAM_ID_LOCAL_STORAGE);
+  effects.router.clearWorkspaceId();
+
   identify('signed_in', false);
   document.cookie = 'signedIn=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
   document.cookie =
@@ -509,8 +512,6 @@ export const acceptTeamInvitation = (
   effects.analytics.track('Team - Invitation Accepted', {});
 
   actions.internal.trackCurrentTeams();
-
-  effects.notificationToast.success(`Accepted invitation to ${teamName}`);
 };
 
 export const rejectTeamInvitation = (
@@ -546,24 +547,8 @@ export const setActiveTeam = async (
     try {
       await actions.getActiveTeamInfo();
     } catch (e) {
-      let personalWorkspaceId = state.personalWorkspaceId;
-      if (!personalWorkspaceId) {
-        const res = await effects.gql.queries.getPersonalWorkspaceId({});
-        personalWorkspaceId = res.me?.personalWorkspaceId;
-      }
-
-      if (personalWorkspaceId) {
-        // This toast was triggered when the getTeam query inside getActiveTeamInfo
-        // failed due to an invalid workspace id in the url or localStorage. We now
-        // check for id validity when initializing.
-        effects.notificationToast.add({
-          title: 'Could not find current workspace',
-          message: "We've switched you to your personal workspace",
-          status: NotificationStatus.WARNING,
-        });
-        // Something went wrong while fetching the workspace
-        actions.setActiveTeam({ id: personalWorkspaceId! });
-      }
+      // Reset the active workspace if something goes wrong
+      actions.internal.setFallbackWorkspace();
     }
   }
 
@@ -576,7 +561,7 @@ export const getActiveTeamInfo = async ({
   actions,
 }: Context) => {
   if (!state.activeTeam) {
-    await actions.internal.setActiveWorkspaceFromUrlOrStore();
+    await actions.internal.initializeActiveWorkspace();
   }
 
   // The getTeam query below used to fail because we weren't sure if the id in
@@ -597,30 +582,6 @@ export const getActiveTeamInfo = async ({
   return currentTeam;
 };
 
-export const openCreateSandboxModal = (
-  { actions }: Context,
-  props: {
-    collectionId?: string;
-    initialTab?: 'import';
-  }
-) => {
-  actions.modals.newSandboxModal.open(props);
-};
-
-type OpenCreateTeamModalParams = {
-  step: TeamStep;
-  hasNextStep?: boolean;
-};
-export const openCreateTeamModal = (
-  { actions }: Context,
-  props?: OpenCreateTeamModalParams
-) => {
-  actions.modals.newTeamModal.open({
-    step: props?.step ?? 'info',
-    hasNextStep: props?.hasNextStep ?? true,
-  });
-};
-
 export const validateUsername = async (
   { effects, state }: Context,
   userName: string
@@ -634,17 +595,17 @@ export const validateUsername = async (
 type SignUpOptions = Omit<FinalizeSignUpOptions, 'id'>;
 export const finalizeSignUp = async (
   { effects, actions, state }: Context,
-  { username, name, role, usage }: SignUpOptions
+  options: SignUpOptions
 ) => {
   if (!state.pendingUser) return;
   try {
-    await effects.api.finalizeSignUp({
+    const { primaryTeamId } = await effects.api.finalizeSignUp({
       id: state.pendingUser.id,
-      username,
-      name,
-      role,
-      usage,
+      ...options,
     });
+
+    state.newUserFirstWorkspaceId = primaryTeamId;
+
     window.postMessage(
       {
         type: 'signin',
@@ -661,7 +622,7 @@ export const finalizeSignUp = async (
 
 export const setLoadingAuth = async (
   { state }: Context,
-  provider: 'apple' | 'google' | 'github'
+  provider: 'apple' | 'google' | 'github' | 'sso'
 ) => {
   state.loadingAuth[provider] = !state.loadingAuth[provider];
 };
@@ -672,6 +633,6 @@ export const getSandboxesLimits = async ({ effects, state }: Context) => {
   state.sandboxesLimits = limits;
 };
 
-export const openCancelSubscriptionModal = ({ state }: Context) => {
-  state.currentModal = 'subscriptionCancellation';
+export const clearNewUserFirstWorkspaceId = ({ state }: Context) => {
+  state.newUserFirstWorkspaceId = null;
 };

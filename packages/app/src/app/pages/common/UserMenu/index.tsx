@@ -1,13 +1,13 @@
 import {
-  curatorUrl,
   profileUrl,
   docsUrl,
+  csbSite,
 } from '@codesandbox/common/lib/utils/url-generator';
-import { Menu, Stack, Element, Icon, Text } from '@codesandbox/components';
+import { Menu, Stack, Icon, Text } from '@codesandbox/components';
 import { useAppState, useActions } from 'app/overmind';
 import React, { FunctionComponent } from 'react';
-import { TeamMemberAuthorization } from 'app/graphql/types';
 
+import { useIsEditorPage } from 'app/hooks/useIsEditorPage';
 import { ProfileImage } from './elements';
 
 export const UserMenu: FunctionComponent & {
@@ -18,16 +18,12 @@ export const UserMenu: FunctionComponent & {
     signOutClicked,
     files: { gotUploadedFiles },
   } = useActions();
-  const {
-    user,
-    activeTeamInfo,
-    activeTeam,
-    activeWorkspaceAuthorization,
-  } = useAppState();
+  const { user, environment } = useAppState();
+  const isEditorPage = useIsEditorPage();
 
   if (!user) {
     return (
-      <Element>
+      <Stack>
         <Menu>
           {props.children}
           <Menu.List>
@@ -38,7 +34,7 @@ export const UserMenu: FunctionComponent & {
               </Stack>
             </Menu.Link>
             <Menu.Divider />
-            <Menu.Link href="/?from-app=1">
+            <Menu.Link href={`${csbSite()}/?from-app=1`}>
               <Stack align="center" gap={2}>
                 <Icon name="external" size={16} />
                 <Text>codesandbox.io</Text>
@@ -46,19 +42,14 @@ export const UserMenu: FunctionComponent & {
             </Menu.Link>
           </Menu.List>
         </Menu>
-      </Element>
+      </Stack>
     );
   }
 
-  const showCurator = user.curatorAt;
-
-  const showBecomePro = !activeTeamInfo?.subscription;
-  const showManageSubscription =
-    activeTeamInfo?.subscription &&
-    activeWorkspaceAuthorization === TeamMemberAuthorization.Admin;
+  const showStorage = !environment.isOnPrem;
 
   return (
-    <Element>
+    <Stack>
       <Menu>
         {props.children || (
           <ProfileImage
@@ -71,12 +62,37 @@ export const UserMenu: FunctionComponent & {
         )}
 
         <Menu.List>
+          <Menu.Item
+            onClick={() =>
+              modalOpened({
+                modal: 'preferences',
+                itemId: isEditorPage ? 'appearance' : 'account',
+              })
+            }
+          >
+            <Stack align="center" gap={2}>
+              <Icon name="gear" size={16} />
+              <Text>User settings</Text>
+            </Stack>
+          </Menu.Item>
+
           <Menu.Link href={profileUrl(user.username)}>
             <Stack align="center" gap={2}>
               <Icon name="profile" size={16} />
               <Text>Profile</Text>
             </Stack>
           </Menu.Link>
+
+          {showStorage && (
+            <Menu.Item onClick={() => gotUploadedFiles(null)}>
+              <Stack align="center" gap={2}>
+                <Icon name="folder" size={16} />
+                <Text>Storage</Text>
+              </Stack>
+            </Menu.Item>
+          )}
+
+          <Menu.Divider />
 
           <Menu.Link href={docsUrl()}>
             <Stack align="center" gap={2}>
@@ -92,57 +108,14 @@ export const UserMenu: FunctionComponent & {
             </Stack>
           </Menu.Item>
 
-          {showCurator && (
-            <Menu.Link to={curatorUrl()}>
-              <Stack align="center" gap={2}>
-                <Icon name="curator" size={16} />
-                <Text>Curator Dashboard</Text>
-              </Stack>
-            </Menu.Link>
-          )}
-
-          {showBecomePro && (
-            <Menu.Link to="/pro">
-              <Stack align="center" gap={2}>
-                <Icon name="proBadge" size={16} />
-                <Text>Upgrade to Pro</Text>
-              </Stack>
-            </Menu.Link>
-          )}
-
-          <Menu.Divider />
-
-          {showManageSubscription && (
-            <Menu.Link to={`/dashboard/settings?workspace=${activeTeam}`}>
-              <Stack align="center" gap={2}>
-                <Icon name="proBadge" size={16} />
-                <Text>Subscription</Text>
-              </Stack>
-            </Menu.Link>
-          )}
-
-          <Menu.Item onClick={() => gotUploadedFiles(null)}>
-            <Stack align="center" gap={2}>
-              <Icon name="folder" size={16} />
-              <Text>Storage</Text>
-            </Stack>
-          </Menu.Item>
-
-          <Menu.Item onClick={() => modalOpened({ modal: 'preferences' })}>
-            <Stack align="center" gap={2}>
-              <Icon name="gear" size={16} />
-              <Text>Preferences</Text>
-            </Stack>
-          </Menu.Item>
-
-          <Menu.Divider />
-
-          <Menu.Link href="/?from-app=1">
+          <Menu.Link href={`${csbSite()}/?from-app=1`}>
             <Stack align="center" gap={2}>
               <Icon name="external" size={16} />
               <Text>codesandbox.io</Text>
             </Stack>
           </Menu.Link>
+
+          <Menu.Divider />
 
           <Menu.Item onClick={() => signOutClicked()}>
             <Stack align="center" gap={2}>
@@ -152,7 +125,7 @@ export const UserMenu: FunctionComponent & {
           </Menu.Item>
         </Menu.List>
       </Menu>
-    </Element>
+    </Stack>
   );
 };
 

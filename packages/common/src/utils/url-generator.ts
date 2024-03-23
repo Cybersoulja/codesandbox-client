@@ -8,8 +8,12 @@ const dotGit = /(\.git)$/;
 
 const sandboxHost = {
   'https://codesandbox.io': 'https://csb.app',
-  'https://codesandbox.stream': 'https://codesandbox.dev',
+  'https://codesandbox.stream': 'https://csb.dev',
 };
+
+// Second slash comes from joining URL parts
+const STATIC_SITE_PROTOCOL = 'https:/';
+const STATIC_SITE_DOMAIN = 'codesandbox.io';
 
 export const CSBProjectGitHubRepository = ({
   owner,
@@ -104,22 +108,27 @@ const sandboxGitUrl = (git: {
 
 export const editorUrl = () => `/s/`;
 
-export const v2EditorUrl = () => `/p/`;
+export const newEditorUrlPrefix = () => `/p/`;
 
-export const sandboxUrl = (sandboxDetails: SandboxUrlSourceData) => {
-  if (sandboxDetails.git) {
-    const { git } = sandboxDetails;
-    return `${editorUrl()}${sandboxGitUrl(git)}`;
+export const sandboxUrl = (
+  sandboxDetails: SandboxUrlSourceData,
+  hasBetaEditorExperiment?: boolean
+) => {
+  let baseUrl = editorUrl();
+
+  if (sandboxDetails.isV2) {
+    baseUrl = `${newEditorUrlPrefix()}devbox/`;
+  } else if (!sandboxDetails.isSse && hasBetaEditorExperiment) {
+    baseUrl = `${newEditorUrlPrefix()}sandbox/`;
   }
 
-  const baseUrl = sandboxDetails.isV2
-    ? `${v2EditorUrl()}sandbox/`
-    : editorUrl();
+  const queryParams = sandboxDetails.query
+    ? `?${new URLSearchParams(sandboxDetails.query).toString()}`
+    : '';
 
-  let queryParams = '';
-
-  if (sandboxDetails.query) {
-    queryParams = `?${new URLSearchParams(sandboxDetails.query).toString()}`;
+  if (sandboxDetails.git) {
+    const { git } = sandboxDetails;
+    return `${baseUrl}${sandboxGitUrl(git)}${queryParams}`;
   }
 
   if (sandboxDetails.alias) {
@@ -142,6 +151,14 @@ export const embedUrl = (sandbox: Sandbox) => {
   return `/embed/${sandbox.id}`;
 };
 
+export const vsCodeLauncherUrl = (devboxId: string) => {
+  return `${protocolAndHost()}${newEditorUrlPrefix()}vscode?sandboxId=${devboxId}`;
+};
+
+export const vsCodeUrl = (devboxId: string) => {
+  return `vscode://CodeSandbox-io.codesandbox-projects/sandbox/${devboxId}`;
+};
+
 const stagingFrameUrl = (shortid: string, path: string) => {
   const stagingHost = (process.env.CODESANDBOX_HOST
     ? process.env.CODESANDBOX_HOST
@@ -162,7 +179,15 @@ export const frameUrl = (
     port = undefined,
   }: { useFallbackDomain?: boolean; port?: number } = {}
 ) => {
+  // @ts-ignore
+  const usesStaticPreviewURL = window._env_?.USE_STATIC_PREVIEW === 'true';
+  // @ts-ignore
+  const previewDomain = window._env_?.PREVIEW_DOMAIN;
   const path = append.indexOf('/') === 0 ? append.substr(1) : append;
+
+  if (usesStaticPreviewURL && previewDomain) {
+    return `${location.protocol}//${previewDomain}/${path}`;
+  }
 
   const templateIsServer = isServer(sandbox.template);
 
@@ -256,9 +281,10 @@ export const gitHubToProjectsUrl = (githubUrl: string) =>
 
 export const searchUrl = (query?: string) =>
   `/search${query ? `?query=${query}` : ''}`;
-export const curatorUrl = () => `/curator`;
-export const tosUrl = () => `/legal/terms`;
-export const privacyUrl = () => `/legal/privacy`;
+export const csbSite = () =>
+  [STATIC_SITE_PROTOCOL, STATIC_SITE_DOMAIN].join('/');
+export const tosUrl = () => `${csbSite()}/legal/terms`;
+export const privacyUrl = () => `${csbSite()}/legal/privacy`;
 
 export function getSandboxId() {
   const csbHost = process.env.CODESANDBOX_HOST;
@@ -291,11 +317,19 @@ export function getSandboxId() {
   return result;
 }
 
-export const docsUrl = (path: string = '') =>
-  `https://codesandbox.io/docs${path}`;
+export const docsUrl = (path: string = '') => `${csbSite()}/docs${path}`;
+
+export const packageExamplesUrl = (packageName: string) =>
+  `${csbSite()}/examples/package/${packageName}`;
+
+export const blogUrl = (path: string = '') => `${csbSite()}/blog${path}`;
 
 export const teamInviteLink = (inviteToken: string) =>
   `${protocolAndHost()}/invite/${inviteToken}`;
+
+export const githubAppInstallLink = () => {
+  return `${protocolAndHost()}/auth/github/app-install`;
+};
 
 export { dashboard };
 
@@ -325,7 +359,7 @@ const v2EditorBranchUrl = ({
     ...(source ? { utm_source: source } : {}),
   }).toString();
 
-  return `${v2EditorUrl()}github/${owner}/${repoName}${
+  return `${newEditorUrlPrefix()}github/${owner}/${repoName}${
     branchName ? '/' + branchName : ''
   }${queryString ? '?' + queryString : ''}`;
 };

@@ -9,14 +9,15 @@ import { IconButton } from '../IconButton';
 
 type ButtonVariant = React.ComponentProps<typeof Button>['variant'];
 
-type Variant = 'trial' | 'warning' | 'primary' | 'neutral';
+type Variant = 'trial' | 'warning' | 'error' | 'primary' | 'info';
 type Corners = 'rounded' | 'straight';
 
 const mapActionVariant: Record<Variant, ButtonVariant> = {
   trial: 'light',
   warning: 'dark',
+  error: 'dark',
   primary: 'dark',
-  neutral: 'primary',
+  info: 'dark',
 };
 
 interface MessageActionProps
@@ -57,15 +58,16 @@ export const MessageMultiActions = ({
 const backgroundVariants: Record<Variant, string> = {
   trial: '#644ED7',
   warning: '#F7CC66',
+  error: '#F5A8A8',
   primary: 'button.background',
-  neutral: '#1D1D1D',
+  info: '#7DA1F9',
 };
-
 const colorVariants: Record<Variant, string> = {
   trial: 'inherit',
   warning: '#0E0E0E',
+  error: '#0E0E0E',
   primary: 'button.foreground',
-  neutral: '#e5e5e5',
+  info: '#0E0E0E',
 };
 
 interface MessageStripeProps {
@@ -128,9 +130,13 @@ const MessageStripe = ({
           <Element css={{ position: 'absolute', right: '16px' }}>
             <IconButton
               onClick={onDismiss}
-              css={{ color: colorVariants[variant] }}
+              css={{
+                color: colorVariants[variant],
+                '&:hover:not(:disabled)': { color: colorVariants[variant] },
+              }}
               name="cross"
               title="Dismiss"
+              variant="square"
             />
           </Element>
         ) : null}

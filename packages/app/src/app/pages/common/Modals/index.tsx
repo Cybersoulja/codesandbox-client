@@ -1,15 +1,14 @@
 import codesandbox from '@codesandbox/common/lib/themes/codesandbox.json';
 import { ThemeProvider } from '@codesandbox/components';
-import {
-  COLUMN_MEDIA_THRESHOLD,
-  CreateSandbox,
-} from 'app/components/CreateSandbox';
 import { useLocation } from 'react-router-dom';
 import Modal from 'app/components/Modal';
 import { useAppState, useActions } from 'app/overmind';
 import getVSCodeTheme from 'app/src/app/pages/Sandbox/Editor/utils/get-vscode-theme';
 import React, { FunctionComponent, useEffect, useState } from 'react';
 
+import { ImportRepository } from 'app/components/Create/ImportRepository';
+import { CreateBox } from 'app/components/Create/CreateBox';
+import { GenericCreate } from 'app/components/Create/GenericCreate';
 import { AddPreset } from './AddPreset';
 import { DeleteDeploymentModal } from './DeleteDeploymentModal';
 import { DeletePreset } from './DeletePreset';
@@ -22,14 +21,11 @@ import { ExportGitHubModal } from './ExportGitHubModal';
 import { FeedbackModal } from './FeedbackModal';
 import { ForkServerModal } from './ForkServerModal';
 import { LiveSessionEnded } from './LiveSessionEnded';
-import { LiveSessionConfirm } from './LiveSessionConfirm';
 import { LiveSessionRestricted } from './LiveSessionRestricted';
 import { LiveVersionMismatch } from './LiveSessionVersionMismatch';
 import { NetlifyLogs } from './NetlifyLogs';
-import { PickSandboxModal } from './PickSandboxModal';
-import { PreferencesModal } from './PreferencesModal';
+import { Preferences } from './PreferencesModal';
 import { RecoverFilesModal } from './RecoverFilesModal';
-import { LegacyPaymentModal } from './LegacyPaymentModal';
 import { SandboxPickerModal } from './SandboxPickerModal';
 import { SearchDependenciesModal } from './SearchDependenciesModal';
 import { SelectSandboxModal } from './SelectSandboxModal';
@@ -39,7 +35,6 @@ import { StorageManagementModal } from './StorageManagementModal';
 import { SurveyModal } from './SurveyModal';
 import { TeamInviteModal } from './TeamInviteModal';
 import { UploadModal } from './UploadModal';
-import { DeleteWorkspace } from './DeleteWorkspace';
 import { MinimumPrivacyModal } from './MinimumPrivacyModal';
 import { GenericAlertModal } from './GenericAlertModal';
 import { AccountDeletionModal } from './AccountDeletion';
@@ -49,22 +44,33 @@ import { UndoAccountDeletionConfirmationModal } from './UndoAccountDeletion/Undo
 import { NotFoundBranchModal } from './NotFoundBranchModal';
 import { GithubPagesLogs } from './GithubPagesLogs';
 import { CropThumbnail } from './CropThumbnail';
-import { SubscriptionCancellationModal } from './SubscriptionCancellation';
-import { SelectWorkspaceToUpgrade } from './SelectWorkspaceToUpgrade';
-import { SelectWorkspaceToStartTrial } from './SelectWorkspaceToStartTrial';
 
 const modals = {
   preferences: {
-    Component: PreferencesModal,
+    Component: Preferences,
     width: 900,
   },
-  legacyPayment: {
-    Component: LegacyPaymentModal,
-    width: 600,
+  createDevbox: {
+    Component: CreateBox,
+    width: 950,
+    props: {
+      type: 'devbox',
+    },
   },
-  newSandbox: {
-    Component: CreateSandbox,
-    width: () => (window.outerWidth > COLUMN_MEDIA_THRESHOLD ? 1200 : 950),
+  createSandbox: {
+    Component: CreateBox,
+    width: 950,
+    props: {
+      type: 'sandbox',
+    },
+  },
+  genericCreate: {
+    Component: GenericCreate,
+    width: 950,
+  },
+  importRepository: {
+    Component: ImportRepository,
+    width: 950,
   },
   share: {
     Component: ShareModal,
@@ -73,10 +79,6 @@ const modals = {
   deployment: {
     Component: DeploymentModal,
     width: 600,
-  },
-  deleteWorkspace: {
-    Component: DeleteWorkspace,
-    width: 400,
   },
   recoveredFiles: {
     Component: RecoverFilesModal,
@@ -114,10 +116,6 @@ const modals = {
     Component: DeleteSandboxModal,
     width: 400,
   },
-  pickSandbox: {
-    Component: PickSandboxModal,
-    width: 600,
-  },
   deleteProfileSandbox: {
     Component: DeleteProfileSandboxModal,
     width: 400,
@@ -148,10 +146,6 @@ const modals = {
   },
   liveSessionEnded: {
     Component: LiveSessionEnded,
-    width: 400,
-  },
-  liveSessionConfirm: {
-    Component: LiveSessionConfirm,
     width: 400,
   },
   liveSessionRestricted: {
@@ -211,18 +205,6 @@ const modals = {
     Component: NotFoundBranchModal,
     width: 450,
   },
-  subscriptionCancellation: {
-    Component: SubscriptionCancellationModal,
-    width: 444,
-  },
-  selectWorkspaceToUpgrade: {
-    Component: SelectWorkspaceToUpgrade,
-    width: 400,
-  },
-  selectWorkspaceToStartTrial: {
-    Component: SelectWorkspaceToStartTrial,
-    width: 400,
-  },
 };
 
 const Modals: FunctionComponent = () => {
@@ -235,6 +217,9 @@ const Modals: FunctionComponent = () => {
       settings: { customVSCodeTheme },
     },
     currentModal,
+    currentModalItemId,
+    repoToImport,
+    sandboxIdToFork,
   } = useAppState();
 
   const [localState, setLocalState] = useState({
@@ -270,6 +255,21 @@ const Modals: FunctionComponent = () => {
   }, [pathname, localState]);
 
   const modal = currentModal && modals[currentModal];
+  if (currentModal === 'createDevbox' || currentModal === 'createSandbox') {
+    modal.props = {
+      ...modal.props,
+      ...(currentModalItemId ? { collectionId: currentModalItemId } : {}),
+      ...(sandboxIdToFork ? { sandboxIdToFork } : {}),
+    };
+  }
+
+  if (currentModal === 'importRepository') {
+    modal.props = {
+      ...modal.props,
+      preSelectedRepo: repoToImport,
+    };
+  }
+
   return (
     <ThemeProvider {...themeProps}>
       <Modal
@@ -283,7 +283,9 @@ const Modals: FunctionComponent = () => {
       >
         {modal
           ? React.createElement(modal.Component, {
+              ...(modal.props || {}),
               closeModal: () => modalClosed(),
+              isModal: true,
             })
           : null}
       </Modal>
@@ -294,3 +296,8 @@ const Modals: FunctionComponent = () => {
 };
 
 export { Modals };
+
+export interface ModalContentProps {
+  closeModal?: () => void;
+  isModal: boolean;
+}

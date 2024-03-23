@@ -1,18 +1,18 @@
-import React, { useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { Element, Text, Stack } from '@codesandbox/components';
-import { useAppState, useActions, useEffects } from 'app/overmind';
+import React, { useState, useEffect } from 'react';
+import { Element, Button, Text, Stack } from '@codesandbox/components';
+import { useAppState, useActions } from 'app/overmind';
 import { InputText } from 'app/components/dashboard/InputText';
 import { InputSelect } from 'app/components/dashboard/InputSelect';
-import { StyledButton } from 'app/components/dashboard/Button';
 import track from '@codesandbox/common/lib/utils/analytics';
 
 const ROLE_OPTIONS = [
-  { value: 'frontend', label: 'Frontend developer' },
-  { value: 'backend', label: 'Backend developer' },
-  { value: 'fullstack', label: 'Fullstack developer' },
+  { value: 'frontend', label: 'Front-End Developer' },
+  { value: 'backend', label: 'Back-End Developer' },
+  { value: 'fullstack', label: 'Full-Stack Developer' },
+  { value: 'lead-dev', label: 'Lead Developer' },
+  { value: 'engineering-manager', label: 'Engineering Manager' },
   { value: 'designer', label: 'Designer' },
-  { value: 'product-manager', label: 'Product manager' },
+  { value: 'product-manager', label: 'Product Manager' },
   { value: 'educator', label: 'Educator' },
   { value: 'student', label: 'Student' },
   { value: 'other', label: 'Other' },
@@ -24,50 +24,37 @@ const USAGE_OPTIONS = [
   { value: 'education', label: 'Education' },
 ];
 
-export const NUOCT22 = 'NUOCT22'; // = new user oct 22
+const COMPANY_SIZE_OPTIONS = [
+  { value: '1-5', label: '1' },
+  { value: '2-10', label: '2-10' },
+  { value: '10-50', label: '10-50' },
+  { value: '50-200', label: '50-200' },
+  { value: '200-500', label: '200-500' },
+  { value: '500-1000', label: '500-1000' },
+  { value: '1000-5000', label: '1000-5000' },
+  { value: '5000-10000', label: '5000-10000' },
+  { value: '10000+', label: '10000+' },
+];
 
 export const Onboarding = () => {
-  /**
-   * 🚧 Utility to debug Trial Onboarding Questions
-   */
-  const TOQ_DEBUG = window.localStorage.getItem('TOQ_DEBUG') === 'ENABLED';
+  const { pendingUser } = useAppState();
 
-  // 🚧 Remove
-  let pendingUser = useAppState().pendingUser;
-
-  // 🚧 Uncomment
-  // const { pendingUser } = useAppState();
-
-  // 🚧 Remove
-  if (TOQ_DEBUG) {
-    pendingUser = {
-      avatarUrl: 'https://avatars.githubusercontent.com/u/7533849?v=4',
-      username: 'tristandubbeld',
-      name: 'Tristan Dubbeld',
-      id: 'id',
-      valid: true,
-    };
-  }
-
-  const { pathname } = useLocation();
-  const { browser } = useEffects();
   const { validateUsername, finalizeSignUp } = useActions();
   const [newUsername, setNewUsername] = useState(pendingUser?.username || '');
   const [newDisplayName, setNewDisplayName] = useState(pendingUser?.name || '');
   const [role, setRole] = useState('');
   const [usage, setUsage] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [companySize, setCompanySize] = useState('');
   const [loadingUsername, setLoadingUserName] = useState(false);
-  const firstName = pendingUser?.name.split(' ')[0];
+  const firstName = (pendingUser?.name || '').split(' ')[0];
 
-  if (pathname.includes('/invite')) {
-    // Set flag to neither show the create team modal and the
-    // what's new modal.
-    browser.storage.set(NUOCT22, 'invite');
-  } else {
-    // Set flag to make sure we show the create team modal and
-    // not the what's new modal after signup.
-    browser.storage.set(NUOCT22, 'signup');
-  }
+  useEffect(() => {
+    if (usage !== 'work') {
+      setCompanyName('');
+      setCompanySize('');
+    }
+  }, [usage]);
 
   return (
     <Stack
@@ -122,6 +109,8 @@ export const Onboarding = () => {
             name: newDisplayName,
             role,
             usage,
+            companyName,
+            companySize,
           });
         }}
       >
@@ -204,13 +193,40 @@ export const Onboarding = () => {
             }}
             required
           />
+
+          {usage === 'work' && (
+            <>
+              <InputText
+                id="companyName"
+                name="companyName"
+                label="What company do you work for?"
+                value={companyName}
+                onChange={e => {
+                  setCompanyName(e.target.value);
+                }}
+              />
+              <InputSelect
+                id="companySize"
+                name="companySize"
+                label="What is the size of your company?"
+                options={COMPANY_SIZE_OPTIONS}
+                placeholder="Please select an option"
+                value={companySize}
+                onChange={e => {
+                  setCompanySize(e.target.value);
+                }}
+                required
+              />
+            </>
+          )}
         </Stack>
-        <StyledButton
+        <Button
           type="submit"
+          size="large"
           disabled={loadingUsername || !pendingUser.valid}
         >
           {loadingUsername ? 'Checking username...' : 'Create account'}
-        </StyledButton>
+        </Button>
       </Stack>
     </Stack>
   );

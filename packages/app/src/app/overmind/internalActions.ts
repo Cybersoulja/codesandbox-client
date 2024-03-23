@@ -12,7 +12,8 @@ import { NotificationStatus } from '@codesandbox/notifications';
 import { hasPermission } from '@codesandbox/common/lib/utils/permission';
 import values from 'lodash-es/values';
 
-import { TeamFragmentDashboardFragment } from 'app/graphql/types';
+import { SubscriptionStatus } from 'app/graphql/types';
+import { getTemplateInfosFromAPI } from 'app/components/Create/utils/api';
 import { ApiError } from './effects/api/apiFactory';
 import { defaultOpenedModule, mainModule } from './utils/main-module';
 import { parseConfigurations } from './utils/parse-configurations';
@@ -30,7 +31,6 @@ export const initializeNewUser = async ({
   effects,
   actions,
 }: Context) => {
-  actions.dashboard.getTeams();
   effects.analytics.identify('signed_in', true);
   effects.analytics.setUserId(state.user!.id, state.user!.email);
 
@@ -42,10 +42,32 @@ export const initializeNewUser = async ({
   }
 
   actions.internal.showUserSurveyIfNeeded();
+  actions.internal.showUpdatedToSIfNeeded();
   await effects.live.getSocket();
   actions.userNotifications.internal.initialize();
   actions.internal.setStoredSettings();
-  effects.api.preloadTemplates();
+
+  if (state.activeTeam) {
+    effects.api.preloadTeamTemplates(state.activeTeam);
+  }
+
+  // Preload official templates for the create modal
+  if (state.officialTemplates.length === 0) {
+    try {
+      const result = await getTemplateInfosFromAPI(
+        '/api/v1/sandboxes/templates/official'
+      );
+
+      state.officialTemplates = result[0].templates;
+    } catch (e) {
+      // ignore errors
+    }
+  }
+
+  // Fallback scenario when the teams are not initialized
+  if (state.dashboard.teams.length === 0) {
+    await actions.dashboard.getTeams();
+  }
 };
 
 export const signIn = async (
@@ -54,6 +76,7 @@ export const signIn = async (
 ) => {
   effects.analytics.track('Sign In', {
     provider: options.provider,
+    scope: options.provider === 'github' ? options.includedScopes : '',
   });
   try {
     await actions.internal.runProviderAuth(options);
@@ -124,6 +147,41 @@ export const showUserSurveyIfNeeded = ({
   }
 };
 
+export const showUpdatedToSIfNeeded = ({ state, effects }: Context) => {
+  const registrationDate = state.user?.insertedAt
+    ? new Date(state.user.insertedAt)
+    : new Date();
+
+  if (registrationDate >= new Date('2024-03-10')) {
+    // This means that the user has registered before we updated the ToS, and we need to notify
+    // them that the ToS has changed.
+    return;
+  }
+
+  const hasShownToS = effects.browser.storage.get('TOS_1_SHOWN');
+  if (hasShownToS) {
+    return;
+  }
+
+  effects.browser.storage.set('TOS_1_SHOWN', true);
+
+  effects.notificationToast.add({
+    title: 'Terms of Service Updated',
+    message: "We've updated our Terms of Service.",
+    status: NotificationStatus.NOTICE,
+    sticky: true,
+
+    actions: {
+      primary: {
+        label: 'Open Terms of Service',
+        run: () => {
+          window.open('https://codesandbox.io/legal/terms', '_blank');
+        },
+      },
+    },
+  });
+};
+
 /**
  * @deprecated
  */
@@ -184,7 +242,7 @@ export const runProviderAuth = (
     ? location.origin
     : process.env.ENDPOINT || 'https://codesandbox.io';
 
-  const authPath = new URL(
+  let authPath = new URL(
     baseUrl + (useDevAuth ? '/auth/dev' : `/auth/${provider}`)
   );
 
@@ -200,6 +258,10 @@ export const runProviderAuth = (
         GH_BASE_SCOPE + ',' + MAP_GH_SCOPE_OPTIONS[options.includedScopes];
     }
     authPath.searchParams.set('scope', scope);
+  }
+
+  if (provider === 'sso') {
+    authPath = new URL(baseUrl + options.ssoURL);
   }
 
   const popup = effects.browser.openPopup(authPath.toString(), 'sign in');
@@ -566,43 +628,6 @@ export const identifyCurrentUser = async ({ state, effects }: Context) => {
   }
 };
 
-export const showPrivacyPolicyNotification = ({ effects, state }: Context) => {
-  const seenTermsKey = 'ACCEPTED_TERMS_CODESANDBOX_v1.1';
-  if (effects.browser.storage.get(seenTermsKey)) {
-    return;
-  }
-
-  if (!state.isFirstVisit) {
-    effects.analytics.track('Saw Terms of Use Notification');
-    effects.notificationToast.add({
-      message:
-        'Hello, we are changing our Terms of Use effective Mar 31, 2021 12:00 UTC. Please read them, or see commit message for a brief sum up.',
-      title: 'Updated Terms of Use',
-      status: NotificationStatus.NOTICE,
-      sticky: true,
-      actions: {
-        secondary: {
-          label: 'Open Commit Message',
-          run: () => {
-            window.open(
-              'https://github.com/codesandbox/codesandbox-client/commit/36b0f928cb863868bbfd93bb455a74ff46951edc',
-              '_blank'
-            );
-          },
-        },
-        primary: {
-          label: 'Open Privacy Policy',
-          run: () => {
-            window.open('https://codesandbox.io/legal/privacy', '_blank');
-          },
-        },
-      },
-    });
-  }
-
-  effects.browser.storage.set(seenTermsKey, true);
-};
-
 const VIEW_MODE_DASHBOARD = 'VIEW_MODE_DASHBOARD';
 export const setViewModeForDashboard = ({ effects, state }: Context) => {
   const localStorageViewMode = effects.browser.storage.get(VIEW_MODE_DASHBOARD);
@@ -611,74 +636,72 @@ export const setViewModeForDashboard = ({ effects, state }: Context) => {
   }
 };
 
-const INVALID_ID_TITLE = 'Workspace not recognized.';
-const INVALID_ID_MESSAGE =
-  "The workspace in the URL or stored in your browser is unknown. We've automatically switched to your personal workspace.";
-
-// TODO we could rename the function to initializeTeam (because we also use
-// personalWorkspaceId);
-export const setActiveWorkspaceFromUrlOrStore = async ({
+export const initializeActiveWorkspace = async ({
   actions,
-  effects,
-}: Context) => {
-  const { id, isValid } = await actions.internal.getTeamIdFromUrlOrStore();
-
-  if (isValid && id) {
-    // Set active team from url or storage.
-    actions.setActiveTeam({ id });
-  } else {
-    // If an id was set but it's not valid we show a toast message informing the user
-    // we changed the workspace to the personal workspace. If no id was set we silently
-    // activate the personal team.
-    if (id) {
-      effects.notificationToast.add({
-        title: INVALID_ID_TITLE,
-        message: INVALID_ID_MESSAGE,
-        status: NotificationStatus.NOTICE,
-      });
-    }
-
-    // Change to personal workspace.
-    actions.internal.setActiveTeamFromPersonalWorkspaceId();
-  }
-};
-
-export const getTeamIdFromUrlOrStore = async ({
   state,
   effects,
-  actions,
-}: Context): Promise<{ id: string | null; isValid: boolean }> => {
-  const suggestedTeamId =
-    actions.internal.getTeamIdFromUrl() ||
-    actions.internal.getTeamIdFromLocalStorage();
-  const hasTeams = state.dashboard?.teams && state.dashboard.teams.length > 0;
+}: Context) => {
+  const persistedWorkspaceId = actions.internal.getTeamIdFromUrlOrStore();
 
-  let userTeams: TeamFragmentDashboardFragment[] | undefined;
-
-  if (hasTeams) {
-    userTeams = state.dashboard.teams;
-  } else {
-    // TODO: Instead of actions.dashboard.getTeams();
-    // We might be able to use it though, and then use state.dashboard.teams!
+  const hasWorkspaces =
+    state.dashboard?.teams && state.dashboard.teams.length > 0;
+  if (!hasWorkspaces) {
     const teams = await effects.gql.queries.getTeams({});
 
     if (teams?.me) {
-      userTeams = teams.me.workspaces;
-
-      // Also set state while we're at it
       state.dashboard.teams = teams.me.workspaces;
-      state.personalWorkspaceId = teams.me.personalWorkspaceId;
+      state.primaryWorkspaceId = teams.me.primaryWorkspaceId;
+    }
+
+    // Hard redirect to /create-workspace when no workspace is available
+    if (
+      !window.location.href.includes('/create-workspace') &&
+      state.dashboard.teams.length === 0
+    ) {
+      window.location.href = '/create-workspace';
     }
   }
 
-  const isSuggestedTeamValid = userTeams?.some(
-    team => team.id === suggestedTeamId
+  const isPersistedWorkspaceValid = state.dashboard.teams.some(
+    team => team.id === persistedWorkspaceId
   );
 
-  return {
-    id: suggestedTeamId!,
-    isValid: Boolean(isSuggestedTeamValid),
-  };
+  if (isPersistedWorkspaceValid && persistedWorkspaceId) {
+    // Set active team from url or storage.
+    actions.setActiveTeam({ id: persistedWorkspaceId });
+  } else {
+    actions.internal.setFallbackWorkspace();
+  }
+};
+
+export const setFallbackWorkspace = ({ actions, state }: Context) => {
+  if (state.primaryWorkspaceId) {
+    actions.setActiveTeam({ id: state.primaryWorkspaceId });
+  } else {
+    const firstWorkspace =
+      state.dashboard.teams.length > 0 ? state.dashboard.teams[0] : null;
+    const firstProWorkspace = state.dashboard.teams.find(
+      team => team.subscription?.status === SubscriptionStatus.Active
+    );
+
+    if (firstProWorkspace) {
+      actions.setActiveTeam({ id: firstProWorkspace.id });
+    } else if (firstWorkspace) {
+      actions.setActiveTeam({ id: firstWorkspace.id });
+    } else {
+      // TODO: Redirect to workspace setup
+      // https://linear.app/codesandbox/issue/PC-1341/handle-empty-state-for-primary-workspaces
+    }
+  }
+};
+
+export const getTeamIdFromUrlOrStore = ({
+  actions,
+}: Context): string | null => {
+  return (
+    actions.internal.getTeamIdFromUrl() ||
+    actions.internal.getTeamIdFromLocalStorage()
+  );
 };
 
 export const getTeamIdFromUrl = (): string | null => {
@@ -700,26 +723,6 @@ export const getTeamIdFromLocalStorage = ({ effects }): string | null => {
   }
 
   return null;
-};
-
-/**
- * Function to activate the personal workspace. We call this function when
- * no initial team id is known (from url or localStorage).
- */
-export const setActiveTeamFromPersonalWorkspaceId = async ({
-  actions,
-  state,
-  effects,
-}: Context) => {
-  if (state.personalWorkspaceId) {
-    actions.setActiveTeam({ id: state.personalWorkspaceId });
-  } else {
-    const res = await effects.gql.queries.getPersonalWorkspaceId({});
-
-    if (res.me) {
-      actions.setActiveTeam({ id: res.me.personalWorkspaceId });
-    }
-  }
 };
 
 export const replaceWorkspaceParameterInUrl = ({ state }: Context) => {

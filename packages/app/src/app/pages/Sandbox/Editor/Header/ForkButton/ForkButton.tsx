@@ -69,7 +69,6 @@ interface TeamOrUserItemProps {
   item: ITeamItem;
   forkClicked: (teamId: string) => void;
   disabled: boolean;
-  isPersonal: boolean;
 }
 const TeamOrUserItem: React.FC<TeamOrUserItemProps> = props => {
   if (props.disabled) {
@@ -107,9 +106,9 @@ export const ForkButton: React.FC<ForkButtonProps> = props => {
   let currentSpace: ITeamItem | null = null;
   let otherWorkspaces: ITeamItem[] = [];
 
-  const userSpace = state.dashboard.teams.find(
-    t => t.id === state.personalWorkspaceId
-  )!;
+  const primarySpace = state.dashboard.teams.find(
+    t => t.id === state.primaryWorkspaceId
+  );
 
   const allTeams: {
     id: string;
@@ -117,8 +116,8 @@ export const ForkButton: React.FC<ForkButtonProps> = props => {
     avatarUrl: string;
     userAuthorizations: MemberAuthorization[];
   }[] = [
-    userSpace,
-    ...state.dashboard.teams.filter(t => t.id !== state.personalWorkspaceId),
+    ...(primarySpace ? [primarySpace] : []),
+    ...state.dashboard.teams.filter(t => state.primaryWorkspaceId),
   ].filter(Boolean);
 
   if (allTeams.length) {
@@ -216,16 +215,12 @@ export const ForkButton: React.FC<ForkButtonProps> = props => {
                     forkClicked={props.forkClicked}
                     item={currentSpace}
                     disabled={state.activeWorkspaceAuthorization === 'READ'}
-                    isPersonal={
-                      currentSpace.teamId === state.personalWorkspaceId
-                    }
                   />
                 )}
 
                 <Menu.Divider />
                 {otherWorkspaces.map((space, i) => (
                   <TeamOrUserItem
-                    isPersonal={space.teamId === state.personalWorkspaceId}
                     key={space.teamId}
                     forkClicked={props.forkClicked}
                     item={space}

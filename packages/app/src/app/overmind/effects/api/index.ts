@@ -13,19 +13,15 @@ import {
   GitPr,
   Module,
   NpmManifest,
-  PaymentDetails,
-  PickedSandboxes,
-  PopularSandboxes,
   Profile,
   Sandbox,
-  SandboxPick,
   UploadedFilesInfo,
   UserQuery,
   UserSandbox,
   SettingsSync,
   ForkSandboxBody,
 } from '@codesandbox/common/lib/types';
-import { LIST_PERSONAL_TEMPLATES } from 'app/components/CreateSandbox/queries';
+import { FETCH_TEAM_TEMPLATES } from 'app/components/Create/utils/queries';
 import { client } from 'app/graphql/client';
 import { PendingUserType } from 'app/overmind/state';
 
@@ -39,8 +35,10 @@ import {
   IDirectoryAPIResponse,
   IModuleAPIResponse,
   SandboxAPIResponse,
-  AvatarAPIResponse,
   FinalizeSignUpOptions,
+  MetaFeatures,
+  VMTier,
+  APIPricingResult,
 } from './types';
 
 let api: Api;
@@ -59,12 +57,19 @@ export default {
 
     return response.jwt;
   },
-  // We only use this function related to current_user/subscription
-  cancelPatronSubscription() {
-    return api.delete<CurrentUserFromAPI>('/users/current_user/subscription');
+  async getSandpackTokenFromTeam(teamId: string): Promise<string> {
+    const response = await api.post<{ token: string }>(
+      `/sandpack/token/${teamId}`,
+      {}
+    );
+
+    return response.token;
   },
   getCurrentUser(): Promise<CurrentUserFromAPI> {
     return api.get('/users/current');
+  },
+  getSandboxTitle(): Promise<{ title: string }> {
+    return api.get('/sandboxes/generate_title');
   },
   markSurveySeen(): Promise<void> {
     return api.post('/users/survey-seen', {});
@@ -239,22 +244,6 @@ export default {
       }
     );
   },
-  getPopularSandboxes(date: string): Promise<PopularSandboxes> {
-    return api.get(`/sandboxes/popular?start_date=${date}`);
-  },
-  saveSandboxPick(
-    sandboxId: string,
-    title: string,
-    description: string
-  ): Promise<SandboxPick> {
-    return api.post(`/sandboxes/${sandboxId}/pick`, {
-      title,
-      description,
-    });
-  },
-  getPickedSandboxes(): Promise<PickedSandboxes> {
-    return api.get(`/sandboxes/picked`);
-  },
   createDirectory(
     sandboxId: string,
     directoryShortid: string,
@@ -418,23 +407,6 @@ export default {
 
     return data.id;
   },
-  updateBadge(badgeId: string, visible: boolean): Promise<void> {
-    return api.patch(`/users/current_user/badges/${badgeId}`, {
-      badge: {
-        visible,
-      },
-    });
-  },
-  getPaymentDetails(): Promise<PaymentDetails> {
-    return api.get(`/users/current_user/payment_details`);
-  },
-  updatePaymentDetails(token: string): Promise<PaymentDetails> {
-    return api.patch('/users/current_user/payment_details', {
-      paymentDetails: {
-        token,
-      },
-    });
-  },
   getProfile(username: string): Promise<Profile> {
     return api.get(`/users/${username}`);
   },
@@ -468,7 +440,9 @@ export default {
   validateUsername(username: string): Promise<{ available: boolean }> {
     return api.get('/users/available/' + username);
   },
-  finalizeSignUp(options: FinalizeSignUpOptions): Promise<void> {
+  finalizeSignUp(
+    options: FinalizeSignUpOptions
+  ): Promise<{ primaryTeamId: string }> {
     return api.post('/users/finalize', options);
   },
   updateShowcasedSandbox(username: string, sandboxId: string) {
@@ -497,7 +471,7 @@ export default {
   },
   /**
    * Updates a sandbox. Used to update sandbox metadata but also to convert
-   * a sandbox to a cloud sandbox.
+   * a sandbox to a devbox.
    */
   updateSandbox(sandboxId: string, data: Partial<Sandbox>): Promise<Sandbox> {
     return api.put(`/sandboxes/${sandboxId}`, {
@@ -528,16 +502,6 @@ export default {
       },
     });
   },
-  updateTeamAvatar(
-    name: string,
-    avatar: string,
-    teamId: string
-  ): Promise<AvatarAPIResponse> {
-    return api.post(`/teams/${teamId}/avatar`, {
-      name,
-      avatar,
-    });
-  },
   createVercelIntegration(code: string): Promise<CurrentUserFromAPI> {
     return api.post(`/users/current_user/integrations/vercel`, {
       code,
@@ -552,8 +516,14 @@ export default {
   signoutVercel(): Promise<void> {
     return api.delete(`/users/current_user/integrations/vercel`);
   },
-  preloadTemplates() {
-    client.query({ query: LIST_PERSONAL_TEMPLATES, variables: {} });
+  preloadTeamTemplates(teamId: string) {
+    client.query({ query: FETCH_TEAM_TEMPLATES, variables: { teamId } });
+  },
+  fetchTemplate(
+    sandboxId: string,
+    templateId: string
+  ): Promise<CustomTemplate> {
+    return api.get(`/sandboxes/${sandboxId}/templates/`);
   },
   deleteTemplate(
     sandboxId: string,
@@ -583,11 +553,6 @@ export default {
         template,
       })
       .then(data => data.template);
-  },
-  updateExperiments(experiments: { [key: string]: boolean }): Promise<void> {
-    return api.post(`/users/experiments`, {
-      experiments,
-    });
   },
   queryUsers(query: string): Promise<UserQuery[]> {
     return api.get(`/users/search?username=${query}`);
@@ -632,8 +597,11 @@ export default {
       sandboxLimit: number;
     }>(`/sandboxes/limits`);
   },
-  getPrices() {
-    return api.get(`/prices`, undefined, undefined, true);
+  getPrices(version?: string) {
+    return api.get<APIPricingResult>(`/prices`, undefined, {
+      version: version || '2023-08-15',
+      shouldCamelize: false, // ensure addon keys don't get messed up
+    });
   },
   stripeCreateCheckout({
     success_path,
@@ -651,6 +619,17 @@ export default {
       cancel_path,
       team_id,
       recurring_interval,
+    });
+  },
+  stripeCreateUBBCheckout(params: {
+    success_path: string;
+    cancel_path: string;
+    team_id: string;
+    plan: string;
+    addons: string[];
+  }) {
+    return api.post<{ stripeCheckoutUrl: string }>(`/checkout`, params, {
+      version: '2024-01-20',
     });
   },
   stripeCustomerPortal(teamId: string, return_path: string) {
@@ -691,5 +670,23 @@ export default {
       `/beta/fork/github/${source.owner}/${source.name}`,
       body
     );
+  },
+  initializeSSO(email: string) {
+    return api.get<{ redirectUrl: string }>('/auth/workos/initialize', {
+      email,
+    });
+  },
+  getFeatures(): Promise<MetaFeatures> {
+    // version null ensures no /v1 is in the URL
+    return api.get('/meta/features', undefined, { version: null });
+  },
+  getVMSpecs(): Promise<{ vmTiers: VMTier[] }> {
+    // version null ensures no /v1 is in the URL
+    return api.get('/vm_tiers', undefined, { version: null });
+  },
+  setVMSpecs(sandboxId: string, vmTier: number) {
+    return api.patch(`/sandboxes/${sandboxId}/vm_tier`, {
+      vmTier,
+    });
   },
 };

@@ -7,19 +7,8 @@
   actions.modals.myModal.close() (Close it, with optional value matching its result)
 */
 
-import { AlertModalComponents } from 'app/pages/common/Modals/GenericAlertModal';
-import { TeamStep } from 'app/pages/Dashboard/Components/NewTeamModal';
-
 export const forkFrozenModal = {
   result: 'fork' as 'fork' | 'cancel' | 'unfreeze',
-};
-
-export const newSandboxModal: {
-  state: { collectionId?: null | string; initialTab?: 'import' | null };
-  result: undefined;
-} = {
-  state: { collectionId: null, initialTab: null },
-  result: undefined,
 };
 
 export const moveSandboxModal: {
@@ -45,7 +34,6 @@ export const alertModal: {
     title: string;
     message?: string;
     type?: 'link' | 'primary' | 'danger' | 'secondary';
-    customComponent?: keyof typeof AlertModalComponents;
     cancelMessage?: string;
     confirmMessage?: string;
   };
@@ -57,12 +45,4 @@ export const alertModal: {
 
 export const extensionInstalledModal = {
   result: true,
-};
-
-export const newTeamModal: {
-  state: { step?: TeamStep; hasNextStep?: boolean };
-  result: undefined;
-} = {
-  state: {},
-  result: undefined,
 };
