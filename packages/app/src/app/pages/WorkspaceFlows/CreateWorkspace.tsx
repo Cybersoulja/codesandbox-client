@@ -24,7 +24,15 @@ export const CreateWorkspace = () => {
 
   return (
     <WorkspaceSetup
-      steps={['create', 'plans', 'addons', 'spending-limit', 'finalize']}
+      steps={[
+        'create',
+        'usecases',
+        'plans',
+        'addons',
+        'spending-limit',
+        'finalize',
+      ]}
+      flow="create-workspace"
       onComplete={() => {
         clearFreshWorkspaceId();
         window.location.href = dashboardUrls.recent(activeTeam, {

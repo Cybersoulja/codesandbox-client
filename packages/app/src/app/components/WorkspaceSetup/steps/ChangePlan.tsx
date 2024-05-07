@@ -46,6 +46,7 @@ export const ChangePlan: React.FC<StepProps> = ({
           currentStep={currentStep}
           numberOfSteps={numberOfSteps}
           title="Review plan"
+          workspaceId={urlWorkspaceId}
         />
 
         <Text color="#e5e5e5">You are switching to the following plan:</Text>
@@ -55,10 +56,10 @@ export const ChangePlan: React.FC<StepProps> = ({
             <Text size={6} color="#e5e5e5">
               Pro plan
             </Text>
-            <Text>{checkout.totalCredits} VM credits</Text>
+            <Text>{checkout.newSubscription.totalCredits} VM credits</Text>
           </Stack>
           <Text size={6} color="#e5e5e5">
-            ${checkout.totalPrice} / month
+            ${checkout.newSubscription.totalPrice} / month
           </Text>
         </Stack>
 

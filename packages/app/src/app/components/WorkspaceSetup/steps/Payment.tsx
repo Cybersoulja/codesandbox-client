@@ -4,6 +4,7 @@ import { useURLSearchParams } from 'app/hooks/useURLSearchParams';
 import { useActions, useAppState, useEffects } from 'app/overmind';
 import { dashboard as dashboardURLs } from '@codesandbox/common/lib/utils/url-generator';
 import track from '@codesandbox/common/lib/utils/analytics';
+import { SubscriptionInterval } from 'app/graphql/types';
 import { StepProps } from '../types';
 import { StepHeader } from '../StepHeader';
 import { AnimatedStep } from '../elements';
@@ -21,7 +22,7 @@ export const Payment: React.FC<StepProps> = ({
 }) => {
   const { api } = useEffects();
   const {
-    checkout: { selectedPlan },
+    checkout: { newSubscription },
   } = useAppState();
   const actions = useActions();
   const { getQueryParam } = useURLSearchParams();
@@ -50,7 +51,11 @@ export const Payment: React.FC<StepProps> = ({
         success_path: successPath,
         cancel_path: cancelPath,
         team_id: workspaceId,
-        plan: selectedPlan,
+        plan: newSubscription.basePlan.id,
+        billing_interval:
+          newSubscription.billingInterval === SubscriptionInterval.Monthly
+            ? 'monthly'
+            : 'yearly',
         addons: actions.checkout.getFlatAddonsList(),
       });
 
@@ -94,6 +99,7 @@ export const Payment: React.FC<StepProps> = ({
               ? 'Redirecting to payment to provider'
               : 'Cannot redirect to payment provider'
           }
+          workspaceId={workspaceId}
         />
 
         {checkout.status === 'error' ? (
